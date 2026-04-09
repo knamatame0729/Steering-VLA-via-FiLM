@@ -13,7 +13,7 @@ conda activate mini-vla
 
 Clone repo
 ```
-
+git clone https://github.com/knamatame0729/Steering-VLA-via-FiLM.git
 ```
 
 Install dependencies
@@ -21,8 +21,14 @@ Install dependencies
 pip install -r requirements.text
 ```
 
+Create a directory for checkpoints
+```
+cd Steering-VLA-via-FiLM
+mkdir checkpoints
+```
+
 ### Donwload the model (3.7MB)
-Download the [VLA Model](https://wandb.ai/kaitos_projects/Manual_FiLM_VLA_Testing/artifacts/model/fm_bottleneck_model/v0/files) in /checkpoints/ directory
+Download the [VLA Model](https://wandb.ai/kaitos_projects/Manual_FiLM_VLA_Testing/artifacts/model/fm_bottleneck_model/v0/files) in /checkpoints/
 ### FiLM is applied into Bottleneck in fusion.py
 - 16 dims of output that we can apply FiLM paramters (gamma, beta)
 ```
