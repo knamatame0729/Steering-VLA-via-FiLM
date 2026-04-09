@@ -1,0 +1,20 @@
+torch
+torchvision
+numpy
+datasets
+
+# simulation
+gymnasium
+mujoco # or mujoco==3.x
+metaworld
+h5py  # for loading LIBERO demos
+
+# data / image utils
+opencv-python
+
+# misc
+tqdm
+
+# video deps
+imageio
+imageio[ffmpeg]

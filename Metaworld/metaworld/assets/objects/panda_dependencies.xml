@@ -1,0 +1,102 @@
+<mujocoinclude>
+    <compiler angle="radian" inertiafromgeom="auto" inertiagrouprange="4 5"/>
+    
+    <asset>
+      <material name="panda_col" rgba="0.3 0.3 1.0 0.5" shininess="0" specular="0.5"/>
+      <material name="white" rgba="1 1 1 1" specular="0.5" shininess="0.25"/>
+      <material name="off_white" rgba="0.901961 0.921569 0.929412 1" specular="0.5" shininess="0.25"/>
+      <material name="black" rgba="0.25 0.25 0.25 1" specular="0.5" shininess="0.25"/>
+      <material name="green" rgba="0 1 0 1" specular="0.5" shininess="0.25"/>
+      <material name="light_blue" rgba="0.039216 0.541176 0.780392 1" specular="0.5" shininess="0.25"/>
+
+      <!-- Collision meshes -->
+      <mesh name="link0_c" file="../objects/meshes/panda/link0.stl"/>
+      <mesh name="link1_c" file="../objects/meshes/panda/link1.stl"/>
+      <mesh name="link2_c" file="../objects/meshes/panda/link2.stl"/>
+      <mesh name="link3_c" file="../objects/meshes/panda/link3.stl"/>
+      <mesh name="link4_c" file="../objects/meshes/panda/link4.stl"/>
+      <mesh name="link5_c0" file="../objects/meshes/panda/link5_collision_0.obj"/>
+      <mesh name="link5_c1" file="../objects/meshes/panda/link5_collision_1.obj"/>
+      <mesh name="link5_c2" file="../objects/meshes/panda/link5_collision_2.obj"/>
+      <mesh name="link6_c" file="../objects/meshes/panda/link6.stl"/>
+      <mesh name="link7_c" file="../objects/meshes/panda/link7.stl"/>
+      <mesh name="hand_c" file="../objects/meshes/panda/hand.stl"/>
+
+      <!-- Visual meshes -->
+      <mesh name="link0_0" file="../objects/meshes/panda/link0_0.obj"/>
+      <mesh name="link0_1" file="../objects/meshes/panda/link0_1.obj"/>
+      <mesh name="link0_2" file="../objects/meshes/panda/link0_2.obj"/>
+      <mesh name="link0_3" file="../objects/meshes/panda/link0_3.obj"/>
+      <mesh name="link0_4" file="../objects/meshes/panda/link0_4.obj"/>
+      <mesh name="link0_5" file="../objects/meshes/panda/link0_5.obj"/>
+      <mesh name="link0_7" file="../objects/meshes/panda/link0_7.obj"/>
+      <mesh name="link0_8" file="../objects/meshes/panda/link0_8.obj"/>
+      <mesh name="link0_9" file="../objects/meshes/panda/link0_9.obj"/>
+      <mesh name="link0_10" file="../objects/meshes/panda/link0_10.obj"/>
+      <mesh name="link0_11" file="../objects/meshes/panda/link0_11.obj"/>
+      <mesh name="link1" file="../objects/meshes/panda/link1.obj"/>
+      <mesh name="link2" file="../objects/meshes/panda/link2.obj"/>
+      <mesh name="link3_0" file="../objects/meshes/panda/link3_0.obj"/>
+      <mesh name="link3_1" file="../objects/meshes/panda/link3_1.obj"/>
+      <mesh name="link3_2" file="../objects/meshes/panda/link3_2.obj"/>
+      <mesh name="link3_3" file="../objects/meshes/panda/link3_3.obj"/>
+      <mesh name="link4_0" file="../objects/meshes/panda/link4_0.obj"/>
+      <mesh name="link4_1" file="../objects/meshes/panda/link4_1.obj"/>
+      <mesh name="link4_2" file="../objects/meshes/panda/link4_2.obj"/>
+      <mesh name="link4_3" file="../objects/meshes/panda/link4_3.obj"/>
+      <mesh name="link5_0" file="../objects/meshes/panda/link5_0.obj"/>
+      <mesh name="link5_1" file="../objects/meshes/panda/link5_1.obj"/>
+      <mesh name="link5_2" file="../objects/meshes/panda/link5_2.obj"/>
+      <mesh name="link6_0" file="../objects/meshes/panda/link6_0.obj"/>
+      <mesh name="link6_1" file="../objects/meshes/panda/link6_1.obj"/>
+      <mesh name="link6_2" file="../objects/meshes/panda/link6_2.obj"/>
+      <mesh name="link6_3" file="../objects/meshes/panda/link6_3.obj"/>
+      <mesh name="link6_4" file="../objects/meshes/panda/link6_4.obj"/>
+      <mesh name="link6_5" file="../objects/meshes/panda/link6_5.obj"/>
+      <mesh name="link6_6" file="../objects/meshes/panda/link6_6.obj"/>
+      <mesh name="link6_7" file="../objects/meshes/panda/link6_7.obj"/>
+      <mesh name="link6_8" file="../objects/meshes/panda/link6_8.obj"/>
+      <mesh name="link6_9" file="../objects/meshes/panda/link6_9.obj"/>
+      <mesh name="link6_10" file="../objects/meshes/panda/link6_10.obj"/>
+      <mesh name="link6_11" file="../objects/meshes/panda/link6_11.obj"/>
+      <mesh name="link6_12" file="../objects/meshes/panda/link6_12.obj"/>
+      <mesh name="link6_13" file="../objects/meshes/panda/link6_13.obj"/>
+      <mesh name="link6_14" file="../objects/meshes/panda/link6_14.obj"/>
+      <mesh name="link6_15" file="../objects/meshes/panda/link6_15.obj"/>
+      <mesh name="link6_16" file="../objects/meshes/panda/link6_16.obj"/>
+      <mesh name="link7_0" file="../objects/meshes/panda/link7_0.obj"/>
+      <mesh name="link7_1" file="../objects/meshes/panda/link7_1.obj"/>
+      <mesh name="link7_2" file="../objects/meshes/panda/link7_2.obj"/>
+      <mesh name="link7_3" file="../objects/meshes/panda/link7_3.obj"/>
+      <mesh name="link7_4" file="../objects/meshes/panda/link7_4.obj"/>
+      <mesh name="link7_5" file="../objects/meshes/panda/link7_5.obj"/>
+      <mesh name="link7_6" file="../objects/meshes/panda/link7_6.obj"/>
+      <mesh name="link7_7" file="../objects/meshes/panda/link7_7.obj"/>
+      <mesh name="hand_0" file="../objects/meshes/panda/hand_0.obj"/>
+      <mesh name="hand_1" file="../objects/meshes/panda/hand_1.obj"/>
+      <mesh name="hand_2" file="../objects/meshes/panda/hand_2.obj"/>
+      <mesh name="hand_3" file="../objects/meshes/panda/hand_3.obj"/>
+      <mesh name="hand_4" file="../objects/meshes/panda/hand_4.obj"/>
+      <mesh name="finger_0" file="../objects/meshes/panda/finger_0.obj"/>
+      <mesh name="finger_1" file="../objects/meshes/panda/finger_1.obj"/>
+    </asset>
+
+    <default>
+      <default class="panda">
+        <joint armature="0.001" damping="2" limited="true"/>
+        <geom conaffinity="1" contype="1" group="1" type="mesh"/>
+        <position ctrllimited="true" ctrlrange="0 1.57"/>
+        
+        <default class="visual">
+          <geom type="mesh" contype="1" conaffinity="1" group="2"/>
+        </default>
+        <default class="collision">
+          <geom type="mesh" contype="1" conaffinity="1" group="3"/>
+        </default>
+        <default class="base_col">
+          <geom conaffinity="1" condim="4" contype="1" group="4" margin="0.001" material="panda_col" solimp=".8 .9 .01" solref=".02 1"/>
+        </default>
+      </default>
+    </default>
+
+</mujocoinclude>

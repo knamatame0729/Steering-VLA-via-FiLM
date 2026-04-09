@@ -1,0 +1,9 @@
+data/
+__pycache__/
+MUJOCO_LOG.txt
+LIBERO/
+videos*/
+checkpoints/
+wandb/
+.vscode*/
+llm_film_logs*/
