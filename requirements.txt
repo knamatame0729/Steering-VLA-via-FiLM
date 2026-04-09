@@ -17,3 +17,6 @@ tqdm
 # video deps
 imageio
 imageio[ffmpeg]
+
+# cmaes
+cmaes
