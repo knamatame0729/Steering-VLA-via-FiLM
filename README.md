@@ -37,5 +37,5 @@ python -m scripts.manual_film_layer --device cuda --episodes 100 --robot sawyer 
 
 ### CMA-ES
 ```
-python -m scripts.manual_film_layer --device cuda --checkpoint checkpoints/fm_bottleneck_model.pt --episodes 100 --save-video --env-name pick-place-v3
+python -m scripts.optimize_film_params_cmaes --checkpoint checkpoints/fm_bottleneck_model.pt --env-name pick-place-v3 --device cuda --eval-episodes 10 --cmaes-popsize 100 --cmaes-generations 30 --cmaes-sigma0 0.05
 ```
