@@ -59,7 +59,7 @@ FILM_CONFIG = {
 def parse_args():
     parser = argparse.ArgumentParser(description="Test VLA Diffusion Policy on robosuite")
 
-    parser.add_argument("--checkpoint", type=str, default="checkpoints/fm_bottleneck_model.pt")
+    parser.add_argument("--checkpoint", type=str, default="checkpoints/model.pt")
     parser.add_argument("--env-name", type=str, default="Lift")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=5)
@@ -71,6 +71,10 @@ def parse_args():
     parser.add_argument("--video-macro-block-size", type=int, default=1)
     parser.add_argument("--controller", type=str, default="OSC_POSE")
     parser.add_argument("--camera-name", type=str, default="agentview")
+    parser.add_argument("--model-image-size", type=int, default=84)
+    parser.add_argument("--capture-image-size", type=int, default=256)
+    parser.add_argument("--video-fps", type=int, default=30)
+    parser.add_argument("--video-crf", type=int, default=18)
     parser.add_argument("--robot", type=str, default="Panda", choices=["Sawyer", "Panda"])
     parser.add_argument("--reward-shaping", action="store_true")
     parser.add_argument("--render", action="store_true")
@@ -135,7 +139,16 @@ def get_film_params(d_model, episode_num):
     return torch.tensor(gamma_arr), torch.tensor(beta_arr)
 
 
-def run_episode_with_modulation(model, env, text_ids, device, max_steps, gamma, beta, save_video=False, episode_num=0):
+def preprocess_image_for_model(img: np.ndarray, resize_to: int) -> np.ndarray:
+    import cv2
+    if img.shape[0] != resize_to or img.shape[1] != resize_to:
+        img = cv2.resize(img, (resize_to, resize_to), interpolation=cv2.INTER_AREA)
+    if img.dtype != np.uint8:
+        img = (img.clip(0, 1) * 255).astype(np.uint8) if img.max() <= 1.0 else img.clip(0, 255).astype(np.uint8)
+    return img
+
+
+def run_episode_with_modulation(model, env, text_ids, device, max_steps, gamma, beta, model_image_size, save_video=False, episode_num=0):
     """
     Run a single episode using the full diffusion model with gamma/beta modulation.
     """
@@ -157,7 +170,8 @@ def run_episode_with_modulation(model, env, text_ids, device, max_steps, gamma, 
 
     done = False
     while not done and step < max_steps:
-        img_t = torch.from_numpy(img).permute(2, 0, 1).float().unsqueeze(0) / 255.0 # (1, 3, H, W)
+        img_model = preprocess_image_for_model(img, model_image_size)
+        img_t = torch.from_numpy(img_model).permute(2, 0, 1).float().unsqueeze(0) / 255.0 # (1, 3, H, W)
         state_t = torch.from_numpy(state).float().unsqueeze(0)
 
         # Move to device
@@ -210,7 +224,7 @@ def run_modulated_episode(args, model, env, text_ids, device, episode_num):
 
     # Run Episode with Modulation
     ep_reward, step, frames, last_action, final_img, final_state, success, pos_array, actions_array, obj_init_pos = run_episode_with_modulation(
-        model, env, text_ids, device, args.max_steps, gamma, beta, args.save_video, episode_num
+        model, env, text_ids, device, args.max_steps, gamma, beta, args.model_image_size, args.save_video, episode_num
     )
     
     print(f"Episode {episode_num+1} is Done")
@@ -243,8 +257,10 @@ def run_modulated_episode(args, model, env, text_ids, device, episode_num):
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
             with imageio.get_writer(
                 tmp.name,
-                fps=30,
+                fps=args.video_fps,
                 macro_block_size=args.video_macro_block_size,
+                codec="libx264",
+                ffmpeg_params=["-crf", str(args.video_crf), "-preset", "slow", "-pix_fmt", "yuv420p"],
             ) as writer:
                 for f in frames:
                     f_rot = np.rot90(f, 2)
@@ -282,6 +298,10 @@ def main():
             "env_name": args.env_name,
             "episodes": args.episodes,
             "max_steps": args.max_steps,
+            "model_image_size": args.model_image_size,
+            "capture_image_size": args.capture_image_size,
+            "video_fps": args.video_fps,
+            "video_crf": args.video_crf,
         },
     )
 
@@ -300,8 +320,8 @@ def main():
             seed=args.seed,
             controller=args.controller,
             camera_name=args.camera_name,
-            image_height=84,
-            image_width=84,
+            image_height=args.capture_image_size,
+            image_width=args.capture_image_size,
             horizon=args.max_steps,
             render=args.render,
         )
@@ -312,8 +332,8 @@ def main():
             seed=args.seed,
             controller=args.controller,
             camera_name=args.camera_name,
-            image_height=84,
-            image_width=84,
+            image_height=args.capture_image_size,
+            image_width=args.capture_image_size,
             horizon=args.max_steps,
             render=args.render,
         )
