@@ -1,4 +1,4 @@
-"""Test VLA Diffusion Policy on Meta-World MT1 with Manual FiLM Parameters"""
+"""Test VLA Diffusion Policy on robosuite with manual FiLM parameters."""
 
 import os
 import argparse
@@ -9,8 +9,7 @@ import wandb
 import io
 import copy
 
-from envs.metaworld_env import MetaWorldMT1Wrapper
-from envs.ur10e_env import UR10ePickPlaceEnvV3
+from envs.robosuite_env import RoboSuiteWrapper
 from models.vla_diffusion_policy import VLADiffusionPolicy
 from utils.tokenizer import SimpleTokenizer
 from .logger import FiLMExperimentLogger
@@ -28,10 +27,16 @@ from .logger import FiLMExperimentLogger
 #     }
 
 
-# CMA-ES Window CLose
+# CMA-ES Robosuite
+# base_override = {
+#     "gamma": {'0:1': 1.010116, '1:2': 1.081593, '2:3': 0.963348, '3:4': 1.090903, '4:5': 1.038758, '5:6': 1.027652, '6:7': 1.011701, '7:8': 0.987574, '8:9': 1.060027, '9:10': 1.007018, '10:11': 0.901647, '11:12': 0.944141, '12:13': 0.990708, '13:14': 1.0155, '14:15': 0.997171, '15:16': 1.060949},
+#     "beta": {'0:1': -0.097555, '1:2': 0.007179, '2:3': -0.090899, '3:4': 0.037986, '4:5': -0.004723, '5:6': 0.02098, '6:7': -0.043194, '7:8': 0.063973, '8:9': 0.052086, '9:10': 0.029177, '10:11': -0.006476, '11:12': 0.028993, '12:13': -0.035345, '13:14': 0.042778, '14:15': 0.082474, '15:16': 0.053531}
+# }
+
+# CMA-ES Robosuite Sawyer
 base_override = {
-    "gamma": {'0:1': -1.154546, '1:2': 1.607959, '2:3': 1.37215, '3:4': 2.622411, '4:5': -1.686217, '5:6': 1.505905, '6:7': 1.596612, '7:8': -1.122524, '8:9': 0.17511, '9:10': 0.697288, '10:11': 0.325717, '11:12': 2.833049, '12:13': 0.391867, '13:14': 0.642963, '14:15': 0.775222, '15:16': 1.279374},
-    "beta": {'0:1': -2.321078, '1:2': -0.854267, '2:3': -1.19921, '3:4': -0.368652, '4:5': 0.744564, '5:6': 0.543053, '6:7': 1.346804, '7:8': -1.103612, '8:9': 1.084299, '9:10': -0.174937, '10:11': 0.448129, '11:12': 0.623176, '12:13': 0.496529, '13:14': 0.786836, '14:15': -2.129541, '15:16': -0.767318}
+    "gamma": {'0:1': 1.831225, '1:2': 0.669329, '2:3': 0.388347, '3:4': 1.96199, '4:5': 1.100746, '5:6': 0.810763, '6:7': 1.399281, '7:8': 1.268777, '8:9': 1.738304, '9:10': 0.928135, '10:11': 0.750602, '11:12': 0.652681, '12:13': 1.416279, '13:14': 1.451743, '14:15': 1.015945, '15:16': 0.939745},
+    "beta": {'0:1': -0.837245, '1:2': 0.118526, '2:3': -1.467, '3:4': 0.104067, '4:5': -0.708148, '5:6': 0.746722, '6:7': 0.244217, '7:8': 1.747737, '8:9': 0.225136, '9:10': -0.869573, '10:11': 0.388761, '11:12': 0.014876, '12:13': -1.074222, '13:14': -0.095689, '14:15': 0.075689, '15:16': -0.169386}
 }
 
 # CMA-ES Button Press
@@ -52,18 +57,23 @@ FILM_CONFIG = {
 }
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Test VLA Diffusion Policy on Meta-World")
+    parser = argparse.ArgumentParser(description="Test VLA Diffusion Policy on robosuite")
 
     parser.add_argument("--checkpoint", type=str, default="checkpoints/fm_bottleneck_model.pt")
-    parser.add_argument("--env-name", type=str, default="pick-place-v3")
+    parser.add_argument("--env-name", type=str, default="Lift")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--max-steps", type=int, default=150)
-    parser.add_argument("--instruction", type=str, default="pick and place the object to the goal")
+    parser.add_argument("--instruction", type=str, default="Pick up the cube")
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument("--save-video", action="store_true")
     parser.add_argument("--video-dir", type=str, default="videos")
-    parser.add_argument("--robot", type=str, default="sawyer", choices=["sawyer", "ur10e"])
+    parser.add_argument("--video-macro-block-size", type=int, default=1)
+    parser.add_argument("--controller", type=str, default="OSC_POSE")
+    parser.add_argument("--camera-name", type=str, default="agentview")
+    parser.add_argument("--robot", type=str, default="Panda", choices=["Sawyer", "Panda"])
+    parser.add_argument("--reward-shaping", action="store_true")
+    parser.add_argument("--render", action="store_true")
 
     return parser.parse_args()
 
@@ -130,9 +140,7 @@ def run_episode_with_modulation(model, env, text_ids, device, max_steps, gamma, 
     Run a single episode using the full diffusion model with gamma/beta modulation.
     """
     img, state, info = env.reset()
-    unwrapped = env.env.unwrapped
-
-    obj_init_pos = unwrapped.obj_init_pos.copy()
+    obj_init_pos = info.get("obj_init_pos") if isinstance(info, dict) else None
 
     # print(f"  [Episode {episode_num}] obj_init_pos: {unwrapped.obj_init_pos}, _target_pos: {unwrapped._target_pos}")
     step = 0
@@ -219,33 +227,42 @@ def run_modulated_episode(args, model, env, text_ids, device, episode_num):
     # }
     # logger.log_episode(episode_data, episode_num)
 
-    obj_x, obj_y = float(obj_init_pos[0]), float(obj_init_pos[1])
-    obj_init_str = f"({obj_x:.4f}, {obj_y:.4f})"
+    obj_metrics = {}
+    if obj_init_pos is not None and len(obj_init_pos) >= 2:
+        obj_x, obj_y = float(obj_init_pos[0]), float(obj_init_pos[1])
+        obj_init_str = f"({obj_x:.4f}, {obj_y:.4f})"
+        obj_metrics = {
+            "eval/obj_init_x": obj_x,
+            "eval/obj_init_y": obj_y,
+            "eval/obj_init_pos": wandb.Html(f"<pre>{obj_init_str}</pre>"),
+        }
 
     # Log video
     if args.save_video:
         import tempfile
         with tempfile.NamedTemporaryFile(suffix=".mp4", delete=True) as tmp:
-            with imageio.get_writer(tmp.name, fps=30) as writer:
+            with imageio.get_writer(
+                tmp.name,
+                fps=30,
+                macro_block_size=args.video_macro_block_size,
+            ) as writer:
                 for f in frames:
                     f_rot = np.rot90(f, 2)
-                    writer.append_data(f_rot)
+                    # Keep frame memory contiguous and aligned for ffmpeg swscale.
+                    safe_frame = np.require(f_rot, dtype=np.uint8, requirements=["C", "A"])
+                    writer.append_data(safe_frame)
 
             wandb.log({
                 "Episode": episode_num,
                 "eval/video": wandb.Video(tmp.name, format="mp4"),
                 "eval/reward": ep_reward,
                 "eval/success": int(success),
-                "eval/obj_init_x": obj_x, 
-                "eval/obj_init_y": obj_y,
-                "eval/obj_init_pos": wandb.Html(f"<pre>{obj_init_str}</pre>"),
+                **obj_metrics,
             }, step=episode_num)
     else:
         wandb.log({"eval/reward": ep_reward,
                    "eval/success": int(success),
-                   "eval/obj_init_x": obj_x, 
-                   "eval/obj_init_y": obj_y,
-                   "eval/obj_init_pos": wandb.Html(f"<pre>{obj_init_str}</pre>"),
+                   **obj_metrics,
                    }, step=episode_num)
 
     
@@ -276,20 +293,29 @@ def main():
     text_ids = torch.tensor(text_tokens, dtype=torch.long).unsqueeze(0).to(device)
 
     # environment
-    if args.robot == "sawyer":
-        env = MetaWorldMT1Wrapper(
+    if args.robot == "Sawyer":
+        env = RoboSuiteWrapper(
             env_name=args.env_name,
+            robots="Sawyer",
             seed=args.seed,
-            render_mode="rgb_array",
-            camera_name="corner2",
-            #random_init=True,
+            controller=args.controller,
+            camera_name=args.camera_name,
+            image_height=84,
+            image_width=84,
+            horizon=args.max_steps,
+            render=args.render,
         )
-    elif args.robot == "ur10e":
-        env = UR10ePickPlaceEnvV3(
-            render_mode="rgb_array",
-            camera_name="corner2",
+    elif args.robot == "Panda":
+        env = RoboSuiteWrapper(
+            env_name=args.env_name,
+            robots="Panda",
             seed=args.seed,
-            random_init=False,
+            controller=args.controller,
+            camera_name=args.camera_name,
+            image_height=84,
+            image_width=84,
+            horizon=args.max_steps,
+            render=args.render,
         )
 
     # Initialize the FiLM experiment logger

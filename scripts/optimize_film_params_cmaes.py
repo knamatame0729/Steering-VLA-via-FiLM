@@ -13,8 +13,7 @@ from typing import Tuple, List, Dict, Optional
 from cmaes import CMA
 import time
 
-from envs.metaworld_env import MetaWorldMT1Wrapper
-from envs.ur10e_env import UR10ePickPlaceEnvV3
+from envs.robosuite_env import RoboSuiteWrapper
 from models.vla_diffusion_policy import VLADiffusionPolicy
 from utils.tokenizer import SimpleTokenizer
 
@@ -23,12 +22,16 @@ from utils.tokenizer import SimpleTokenizer
 class OptimConfig:
     # model / env
     checkpoint:  str   = "checkpoints/fm_bottleneck_model_v2.pt"
-    env_name:    str   = "pick-place-v3"
-    robot:       str   = "sawyer"
+    env_name:    str   = "Lift"
+    robot:       str   = "Panda"
+    controller:  str   = "OSC_POSE"
+    camera_name: str   = "agentview"
     seed:        int   = 42
-    instruction: str   = "pick and place the object to the goal"
+    instruction: str   = "Pick up the cube"
     device:      str   = "cpu"
-    max_steps:   int   = 150
+    max_steps:   int   = 400
+    resize_to:   int   = 84
+    reward_shaping: bool = False
 
     # FiLM
     d_model: int = 16
@@ -64,20 +67,17 @@ def load_model_and_tokenizer(checkpoint_path: str, device: torch.device):
 
 
 def make_env(cfg: OptimConfig):
-    if cfg.robot == "sawyer":
-        return MetaWorldMT1Wrapper(
-            env_name=cfg.env_name,
-            seed=cfg.seed,
-            render_mode="rgb_array",
-            camera_name="corner2",
-            random_init=True,
-        )
-    elif cfg.robot == "ur10e":
-        return UR10ePickPlaceEnvV3(
-            render_mode="rgb_array",
-            camera_name="corner2",
-            random_init=False,
-        )
+    return RoboSuiteWrapper(
+        env_name=cfg.env_name,
+        robots=cfg.robot,
+        seed=cfg.seed,
+        controller=cfg.controller,
+        camera_name=cfg.camera_name,
+        image_height=cfg.resize_to,
+        image_width=cfg.resize_to,
+        horizon=cfg.max_steps,
+        reward_shaping=cfg.reward_shaping,
+    )
 
 # Single episode runner
 
@@ -89,16 +89,32 @@ def run_episode(model, env, text_ids, device, max_steps,
         beta_t  = beta.unsqueeze(0).to(device)
 
         step = 0
-        reward = 0.0
+        total_reward = 0.0
         success = False
         done = False
 
-        max_tcp_to_obj_reward = 0.0
-        max_object_grasped = 0.0
-        max_lift_reward = 0.0
-        max_move_reward = 0.0
-        max_in_place = 0.0
-        max_in_place_and_obj_grasped = 0.0
+        def compute_phase_reward(info):
+            reward = 0.0
+
+            # ===== reach =====
+            if "gripper_dist" in info:
+                d = info["gripper_dist"]
+                reward += np.exp(-5 * d)   # 0~1
+
+            # ===== grasp =====
+            if info.get("grasped", False):
+                reward += 1.0
+
+            # ===== lift =====
+            if "cube_z" in info:
+                lift = info["cube_z"] - 0.8
+                reward += np.clip(lift * 10, 0, 1.0)
+
+            # ===== success =====
+            if info.get("success", False):
+                reward += (max_steps - step) * 1.5
+
+            return reward
         
         while not done and step < max_steps:
             img_t   = torch.from_numpy(img).permute(2, 0, 1).float().unsqueeze(0).div(255.0).to(device)
@@ -108,34 +124,18 @@ def run_episode(model, env, text_ids, device, max_steps,
                 action = model.act(img_t, text_ids, state_t, gamma_t, beta_t)
             
             img, state, reward, done, info = env.step(action.squeeze(0).cpu().numpy())
-            step += 1
 
-            max_tcp_to_obj_reward = max(max_tcp_to_obj_reward, info.get("tcp_to_obj_reward", 0.0))
-            max_object_grasped = max(max_object_grasped, info.get("grasp_reward", 0.0))
-            max_lift_reward = max(max_lift_reward, info.get("lift_reward", 0.0))
-            max_move_reward = max(max_move_reward, info.get("move_reward", 0.0))
-            max_in_place = max(max_in_place, info.get("in_place", 0.0))
-            max_in_place_and_obj_grasped = max(max_in_place_and_obj_grasped, info.get("in_place_and_object_grasped", 0.0))
+            reward = compute_phase_reward(info)
+
+            total_reward += float(reward)
+            step += 1
             
             if info.get("success", False):
                 success = True
                 done = True
                 break
 
-        if success:
-            reward = 10.0
-
-        else:
-            reward = (
-                max_tcp_to_obj_reward        * 2.0 +
-                max_object_grasped           * 1.0 +
-                max_lift_reward              * 2.0 +
-                max_move_reward              * 1.0 +
-                max_in_place                 * 0 +
-                max_in_place_and_obj_grasped * 0
-            )
-
-        return success, reward
+        return success, total_reward
     
     except Exception as e:
         print(f"[ERROR] run_episode failed: {str(e)[:100]}")
@@ -343,18 +343,22 @@ def report_results(best_params: np.ndarray, d_model: int, objective: ObjectiveFu
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Optimize FiLM gamma/beta with CMA-ES")
-    parser.add_argument("--checkpoint",        default="checkpoints/fm_bottleneck_model_v2.pt")
-    parser.add_argument("--env-name",          default="pick-place-v3")
-    parser.add_argument("--robot",             default="sawyer", choices=["sawyer", "ur10e"])
+    parser.add_argument("--checkpoint",        default="checkpoints/model.pt")
+    parser.add_argument("--env-name",          default="Lift")
+    parser.add_argument("--robot",             default="Panda")
+    parser.add_argument("--controller",        default="OSC_POSE")
+    parser.add_argument("--camera-name",       default="agentview")
+    parser.add_argument("--resize-to",         type=int,   default=84)
     parser.add_argument("--seed",              type=int,   default=42)
     parser.add_argument("--device",            default="cpu")
-    parser.add_argument("--instruction",       default="pick and place the object to the goal")
+    parser.add_argument("--instruction",       default="Pick up the cube")
     parser.add_argument("--max-steps",         type=int,   default=150)
     parser.add_argument("--eval-episodes",     type=int,   default=20)
     parser.add_argument("--cmaes-popsize",     type=int,   default=60)
     parser.add_argument("--cmaes-generations", type=int,   default=100)
     parser.add_argument("--cmaes-sigma0",      type=float, default=2.0)
     parser.add_argument("--cmaes-seed",        type=int,   default=42)
+    parser.add_argument("--reward-shaping",    action="store_true")
     parser.add_argument("--output-dir",        default="optim_results")
     parser.add_argument("--no-wandb",          action="store_true")
     return parser.parse_args()
@@ -379,10 +383,14 @@ def main():
         checkpoint        = args.checkpoint,
         env_name          = args.env_name,
         robot             = args.robot,
+        controller        = args.controller,
+        camera_name       = args.camera_name,
         seed              = args.seed,
         device            = str(device),
         instruction       = args.instruction,
         max_steps         = args.max_steps,
+        resize_to         = args.resize_to,
+        reward_shaping    = args.reward_shaping,
         eval_episodes     = args.eval_episodes,
         cmaes_popsize     = args.cmaes_popsize,
         cmaes_generations = args.cmaes_generations,
