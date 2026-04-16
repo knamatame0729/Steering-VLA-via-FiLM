@@ -6,10 +6,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-seed = 42
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
-
 
 @dataclass
 class DiffusionConfig:
