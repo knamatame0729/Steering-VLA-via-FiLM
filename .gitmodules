@@ -1,3 +1,6 @@
 [submodule "Metaworld"]
 	path = Metaworld
 	url = https://github.com/knamatame0729/Metaworld.git
+[submodule "robosuite"]
+	path = robosuite
+	url = https://github.com/ARISE-Initiative/robosuite.git
