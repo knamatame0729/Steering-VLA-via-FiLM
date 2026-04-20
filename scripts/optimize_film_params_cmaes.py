@@ -1,5 +1,5 @@
 """
-Optimize FiLM gamma/beta parameters for VLA Diffusion Policy using CMA-ES.
+Optimize FiLM gamma/beta parameters for VLA Diffusion Policy using Nevergrad.
 """
 
 import os
@@ -10,7 +10,7 @@ import torch
 import wandb
 from dataclasses import dataclass
 from typing import Tuple, List, Dict, Optional
-from cmaes import CMA
+import nevergrad as ng
 import time
 
 from envs.robosuite_env import RoboSuiteWrapper
@@ -39,15 +39,12 @@ class OptimConfig:
     # evaluation
     eval_episodes: int = 20
 
-    # CMA-ES
-    cmaes_popsize:      int   = 60    # Population size
-    cmaes_generations:  int   = 100   # Number of generations
-    cmaes_sigma0:       float = 2.0   # Initial standard deviation
-    cmaes_seed:         int   = 42
+    # Nevergrad
+    ng_budget: int = 5000
 
     # logging
     use_wandb:    bool = True
-    project_name: str  = "FiLM_Optimization_CMAES"
+    project_name: str  = "FiLM_Optimization_Nevergrad"
     output_dir:   str  = "optim_results"
 
 # Model and Env
@@ -143,13 +140,18 @@ def run_episode(model, env, text_ids, device, max_steps,
 
 
 # Objective function
-def evaluate(params: np.ndarray, model, env, text_ids, device, cfg: OptimConfig) -> Tuple[float, int]:
+def evaluate(params: np.ndarray, cfg: OptimConfig,
+             model, env, text_ids, device) -> Tuple[float, int]:
     """
     Evaluate parameters over multiple episodes.
     """
     d = cfg.d_model
-    gamma = torch.tensor(params[:d], dtype=torch.float32)
-    beta  = torch.tensor(params[d:], dtype=torch.float32)
+    # gamma = torch.tensor(params[:d], dtype=torch.float32)
+    # beta  = torch.tensor(params[d:], dtype=torch.float32)
+
+    params_t = torch.from_numpy(params).float().to(device)
+    gamma = params_t[:d]
+    beta  = params_t[d:]
 
     successes = 0
     rewards = []
@@ -167,81 +169,62 @@ def evaluate(params: np.ndarray, model, env, text_ids, device, cfg: OptimConfig)
     return loss, successes
 
 
-# CMA-ES Optimization
+# Nevergrad Optimization
 
 class ObjectiveFunction:
-    def __init__(self, model, env, text_ids, device, cfg: OptimConfig):
-        self.model = model
-        self.env = env
-        self.text_ids = text_ids
-        self.device = device
+    def __init__(self, cfg: OptimConfig):
         self.cfg = cfg
-        self.evaluations = 0
-        self.best_loss = float("inf")
-        self.best_params = None
+        self.evaluations        = 0
+        self.best_loss          = float("inf")
+        self.best_params        = None
         self.best_success_count = 0
-        self.history = []
+        self.history            = []
         self.success_params_list = []
-
-    def __call__(self, params: np.ndarray) -> float:
-        """Return loss for CMA-ES given params"""
-        loss, success_count = evaluate(params, self.model, self.env, 
-                                      self.text_ids, self.device, self.cfg)
+ 
+    def record(self, loss: float, success_count: int, params: np.ndarray):
         self.evaluations += 1
-
-        # Track successful parameters
+ 
         if success_count > 0:
             self.success_params_list.append({
-                "params": params.copy(),
+                "params":        params.copy(),
                 "success_count": success_count,
-                "loss": loss,
-                "reward": -loss,
+                "loss":          loss,
+                "reward":        -loss,
             })
-
-        # Track best params
+ 
         if loss < self.best_loss:
-            self.best_loss = loss
-            self.best_params = params.copy()
+            self.best_loss          = loss
+            self.best_params        = params.copy()
             self.best_success_count = success_count
-
-        # Print FiLM params when success count is more than 2 times
+ 
         if success_count >= 1:
             d = self.cfg.d_model
-            gamma = params[:d]
-            beta = params[d:]
-            gamma_dict = {f"{i}:{i+1}": round(float(gamma[i]), 6) for i in range(d)}
-            beta_dict = {f"{i}:{i+1}": round(float(beta[i]), 6) for i in range(d)}
+            gamma_dict = {f"{i}:{i+1}": round(float(params[i]),   6) for i in range(d)}
+            beta_dict  = {f"{i}:{i+1}": round(float(params[d+i]), 6) for i in range(d)}
             print(f"\nsuccess_count={success_count}/{self.cfg.eval_episodes}")
             print(f"  gamma = {gamma_dict}")
             print(f"  beta  = {beta_dict}\n")
-
-        # Append to history for logging
+ 
         self.history.append({
-            'evaluations': self.evaluations,
-            'loss': float(loss),
-            'success_count': int(success_count),
+            "evaluations":   self.evaluations,
+            "loss":          float(loss),
+            "success_count": int(success_count),
         })
-
+ 
         if self.cfg.use_wandb:
             wandb.log({
-                "eval/loss": float(loss),
+                "eval/loss":          float(loss),
                 "eval/success_count": int(success_count),
-                "evaluations": self.evaluations,
+                "evaluations":        self.evaluations,
             })
 
-        noisy_loss = loss + np.random.normal(0, 1e-6)
-        return noisy_loss
 
+def run_optim(model, env, text_ids, device, cfg: OptimConfig) -> Tuple[np.ndarray, List[Dict], List[Dict]]:
 
-def run_cmaes(model, env, text_ids, device, cfg: OptimConfig) -> Tuple[np.ndarray, List[Dict], List[Dict]]:
-    """
-    Run CMA-ES optimization to find best gamma/beta parameters.
-    """
     print("\n" + "=" * 70)
-    print("  CMA-ES OPTIMIZATION")
-    print(f"  Population Size: {cfg.cmaes_popsize}")
-    print(f"  Generations: {cfg.cmaes_generations}")
-    print(f"  Total Parameters: {cfg.d_model * 2}")
+    print("  NEVERGRAD OPTIMIZATION STARTED")
+    print(f"  Budget:     {cfg.ng_budget}")
+    print(f"  Parameters: {cfg.d_model * 2}")
     print("=" * 70)
 
     # Initial params
@@ -250,56 +233,58 @@ def run_cmaes(model, env, text_ids, device, cfg: OptimConfig) -> Tuple[np.ndarra
         np.zeros(cfg.d_model, dtype=np.float32),   # beta
     ])
 
+    param = ng.p.Array(init=x0).set_bounds(-2, 2)
+    optimizer = ng.optimizers.ChainCMAPowell(parametrization=param, budget=cfg.ng_budget, num_workers=1)
+
+    # print(type(optimizer.optim))        # NGOpt16の内部
+    # print(optimizer.optim.name)         # 名前
+    # if hasattr(optimizer.optim, 'optim'):
+    #     print(type(optimizer.optim.optim)) 
+
     # Objective function wrapper
-    objective = ObjectiveFunction(model, env, text_ids, device, cfg)
+    objective = ObjectiveFunction(cfg)
 
-    # CMA-ES
-    es = CMA(
-        mean=x0,
-        sigma=cfg.cmaes_sigma0,
-        population_size=cfg.cmaes_popsize,
-        seed=cfg.cmaes_seed,
-        lr_adapt=True,
-    )
+    for evaluated in range(cfg.ng_budget):
+        candidate = optimizer.ask()
 
-    # Loop over generations
-    for generation in range(1, cfg.cmaes_generations + 1):
-        iter_start = time.time()
+        try:
+            loss, success_count = evaluate(candidate.value, cfg, model, env, text_ids, device)
+        except Exception as e:
+            print(f"Error occurred while evaluating candidate: {e}")
+            loss, success_count = 0.0, 0
 
-        # Sample and evaluate one full CMA-ES generation
-        solutions = []
-        for _ in range(cfg.cmaes_popsize):
-            params = es.ask()
-            loss = objective(params)
-            solutions.append((params, loss))
+        # Update optimizer with evaluated candidate
+        noisy_loss = loss + np.random.normal(0, 1e-6)
+        optimizer.tell(candidate, noisy_loss)
 
-        # Update CMA-ES with evaluated solutions
-        es.tell(solutions)
-        
-        iter_time = time.time() - iter_start
+        objective.record(loss, success_count, candidate.value)
 
         print(
-            f"[gen {generation:3d}/{cfg.cmaes_generations}] "
-            f"success={objective.best_success_count}/{cfg.eval_episodes} "
-            f"σ={es._sigma:.4f} "
+            f"[eval {evaluated + 1:5d}/{cfg.ng_budget}] "
+            f"best_reward={-objective.best_loss:.4f}  "
+            f"best_success={objective.best_success_count}/{cfg.eval_episodes}"
         )
-
+ 
         if cfg.use_wandb:
             wandb.log({
-                "generation": generation,
-                "loss": objective.best_loss,
-                "reward": -objective.best_loss,
-                "success_count": objective.best_success_count,
-                "evaluations": objective.evaluations,
-                "sigma": es._sigma,
+                "loss":          loss,
+                "reward":        -loss,
+                "success_count": success_count,
+                "evaluations":   objective.evaluations,
             })
+
+    recommendation = optimizer.provide_recommendation()
+    best_params = recommendation.value
+
+    if objective.best_params is None:
+        objective.best_params = best_params
 
     print("\n" + "=" * 70)
     print(f"  Optimization finished!")
-    print(f"  Best Reward: {-objective.best_loss:.4f}")
+    print(f"  Best Reward:        {-objective.best_loss:.4f}")
     print(f"  Best Success Count: {objective.best_success_count}/{cfg.eval_episodes}")
-    print(f"  Total Evaluations: {objective.evaluations}")
-    print(f"  Total Successful Parameter Sets: {len(objective.success_params_list)}")
+    print(f"  Total Evaluations:  {objective.evaluations}")
+    print(f"  Successful Sets:    {len(objective.success_params_list)}")
     print("=" * 70)
 
     return objective.best_params, objective
@@ -354,10 +339,7 @@ def parse_args():
     parser.add_argument("--instruction",       default="Pick up the cube")
     parser.add_argument("--max-steps",         type=int,   default=150)
     parser.add_argument("--eval-episodes",     type=int,   default=20)
-    parser.add_argument("--cmaes-popsize",     type=int,   default=60)
-    parser.add_argument("--cmaes-generations", type=int,   default=100)
-    parser.add_argument("--cmaes-sigma0",      type=float, default=2.0)
-    parser.add_argument("--cmaes-seed",        type=int,   default=42)
+    parser.add_argument("--ng-budget",         type=int,   default=5000)
     parser.add_argument("--reward-shaping",    action="store_true")
     parser.add_argument("--output-dir",        default="optim_results")
     parser.add_argument("--no-wandb",          action="store_true")
@@ -392,10 +374,7 @@ def main():
         resize_to         = args.resize_to,
         reward_shaping    = args.reward_shaping,
         eval_episodes     = args.eval_episodes,
-        cmaes_popsize     = args.cmaes_popsize,
-        cmaes_generations = args.cmaes_generations,
-        cmaes_sigma0      = args.cmaes_sigma0,
-        cmaes_seed        = args.cmaes_seed,
+        ng_budget         = args.ng_budget,
         use_wandb         = not args.no_wandb,
     )
 
@@ -405,9 +384,7 @@ def main():
             project=cfg.project_name,
             config={
                 "eval_episodes": cfg.eval_episodes,
-                "cmaes_popsize": cfg.cmaes_popsize,
-                "cmaes_generations": cfg.cmaes_generations,
-                "cmaes_sigma0": cfg.cmaes_sigma0,
+                "ng_budget": cfg.ng_budget,
             }
         )
 
@@ -420,7 +397,7 @@ def main():
 
     try:
         # Run CMA-ES optimization
-        best_params, objective = run_cmaes(model, env, text_ids, device, cfg)
+        best_params, objective = run_optim(model, env, text_ids, device, cfg)
 
         # Report and save results
         report_results(best_params, cfg.d_model, objective)
