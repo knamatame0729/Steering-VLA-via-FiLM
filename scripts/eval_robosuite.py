@@ -119,7 +119,7 @@ def run_episode(model, env, text_ids, device, max_steps, resize_to):
         action_np = action.squeeze(0).cpu().numpy()
         img, state, reward, done, info = env.step(action_np)
 
-        reward = compute_phase_reward(info)
+        # reward = compute_phase_reward(info)
 
         total_reward += reward
         success = success or bool(info.get("success", False))
