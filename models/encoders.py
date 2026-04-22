@@ -13,10 +13,17 @@ class ImageEncoderTinyCNN(nn.Module):
         self.proj = nn.Linear(128, d_model)
         self.ln = nn.LayerNorm(d_model)
 
-    def forward(self, x):
+    def forward(self, x, gamma=None, beta=None):
         x = F.relu(self.conv1(x))     # (B, 32, 32, 32)
         x = F.relu(self.conv2(x))     # (B, 64, 16, 16)
-        x = F.relu(self.conv3(x))     # (B, 128, 8, 8)
+
+        x = self.conv3(x)
+
+        if gamma is not None and beta is not None:
+            # Apply FiLM modulation
+            x = x * gamma.unsqueeze(-1).unsqueeze(-1) + beta.unsqueeze(-1).unsqueeze(-1)
+            
+        x = F.relu(x)     # (B, 128, 8, 8)
         x = x.mean(dim=[2, 3])        # Global average pooling -> (B, 128)
         x = self.proj(x)              # (B, d_model)
         x = self.ln(x)                # Layer Normalization
