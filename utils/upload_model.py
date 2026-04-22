@@ -1,13 +1,18 @@
 import wandb
+from pathlib import Path
 
 wandb.init(project="Manual_FiLM_VLA_Testing", name="model_upload")
 
 artifact = wandb.Artifact(
-    name="fm_bottleneck_model", 
+    name="can_model_v2", 
     type="model"
 )
 
-artifact.add_file("/home/knamatam/mini-vla/checkpoints/fm_bottleneck_model.pt")
+model_path = Path("~/VLA-via-FiLM/checkpoints/can_model_v2.pt").expanduser()
+if not model_path.is_file():
+    raise FileNotFoundError(f"Model file not found: {model_path}")
+
+artifact.add_file(str(model_path))
 
 wandb.log_artifact(artifact)
 wandb.finish()

@@ -34,7 +34,7 @@ class OptimConfig:
     reward_shaping: bool = False
 
     # FiLM
-    state_dim: int = 16
+    state_dim: int = 128
 
     # evaluation
     eval_episodes: int = 20
