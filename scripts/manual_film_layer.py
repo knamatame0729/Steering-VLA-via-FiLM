@@ -14,7 +14,14 @@ from models.vla_diffusion_policy import VLADiffusionPolicy
 from utils.tokenizer import SimpleTokenizer
 from .logger import FiLMExperimentLogger
 
-base_override = {"gamma": {},            "beta": {}}
+# base_override = {"gamma": {},            "beta": {}}
+
+base_override = {"gamma": {
+                     '0:1': 0.819618, '1:2': 1.158937, '2:3': 1.11873, '3:4': 1.573819, '4:5': 1.101995, '5:6': 0.825526, '6:7': 0.956059, '7:8': 1.067295, '8:9': 1.254453, '9:10': 1.253812, '10:11': 0.947141, '11:12': 0.991634, '12:13': 1.345437, '13:14': 1.559129, '14:15': 1.29751, '15:16': 0.97821
+                },
+                 "beta": {
+                     '0:1': 0.524016, '1:2': -0.38183, '2:3': -0.074151, '3:4': -0.448317, '4:5': -0.330503, '5:6': 0.003219, '6:7': 0.261279, '7:8': -0.032312, '8:9': -0.345399, '9:10': -0.213267, '10:11': -0.097822, '11:12': -0.22192, '12:13': 0.615817, '13:14': 0.45496, '14:15': -0.397519, '15:16': -0.153034
+                 }}
 
 FILM_CONFIG = {
     "default_gamma": 1.0,
@@ -187,7 +194,7 @@ def run_modulated_episode(args, model, env, text_ids, device, episode_num):
     print(f"Episode {episode_num+1}/{args.episodes}")
     
     # Get FiLM parameters
-    gamma, beta = get_film_params(128, episode_num)
+    gamma, beta = get_film_params(16, episode_num)
     gamma = gamma.to(device)
     beta = beta.to(device)
 
@@ -262,7 +269,7 @@ def main():
     # Initialize W&B for evaluation
     wandb.init(
         entity="kaitos_projects",
-        project="Manual_FiLM_VLA_Testing_CNN",
+        project="Manual_FiLM_VLA_Testing",
         config={
             "env_name": args.env_name,
             "episodes": args.episodes,
