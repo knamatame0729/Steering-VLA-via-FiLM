@@ -48,7 +48,11 @@ class StateEncoderMLP(nn.Module):
         )
         self.ln = nn.LayerNorm(d_model)
 
-    def forward(self, s):
+    def forward(self, s, gamma=None, beta=None):
         x = self.net(s)
         x = self.ln(x)
+
+        if gamma is not None and beta is not None:
+            # Apply FiLM modulation
+            x = gamma * x + beta 
         return x
