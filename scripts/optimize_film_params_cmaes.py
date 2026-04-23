@@ -163,10 +163,8 @@ def evaluate(params: np.ndarray, cfg: OptimConfig,
         if success:
             successes += 1
 
-        print(f"  ep {ep+1}: success={success}, reward={reward:.4f}")
  
     mean_reward = np.mean(rewards)
-    print(f"  mean_reward={mean_reward:.4f}, successes={successes}")
 
     loss = -mean_reward
 
