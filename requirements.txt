@@ -18,5 +18,17 @@ tqdm
 imageio
 imageio[ffmpeg]
 
-# cmaes
-cmaes
+# nevergrad
+nevergrad
+
+# peft
+peft
+
+# wandb
+wandb
+
+# robosuite
+robosuite
+
+# Install trasformers with conda forge
+# conda install conda-forge::transformers

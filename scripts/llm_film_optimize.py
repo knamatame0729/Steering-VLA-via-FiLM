@@ -20,7 +20,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Test VLA Diffusion Policy on Meta-World MT1")
 
     parser.add_argument("--checkpoint", type=str, default="checkpoints/can_model_v2.pt")
-    parser.add_argument("--robot", type=str, default="sawyer")
+    parser.add_argument("--robot", type=str, default="Panda")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=10000)
     parser.add_argument("--max-steps", type=int, default=150)
@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument("--prompt-id", type=int, default=1)
     parser.add_argument("--video-fps", type=int, default=30)
     parser.add_argument("--eval-episodes",  type=int, default=20)
-    parser.add_argument("--env-name", type=str, default="CanPickAndPlace")
+    parser.add_argument("--env-name", type=str, default="PickPlaceCan")
     parser.add_argument("--controller", type=str, default="OSC_POSE")
     parser.add_argument("--camera-name", type=str, default="agentview")
     parser.add_argument("--resize-to", type=int, default=84)
