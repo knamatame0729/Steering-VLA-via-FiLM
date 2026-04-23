@@ -236,7 +236,7 @@ def run_optim(model, env, text_ids, device, cfg: OptimConfig) -> Tuple[np.ndarra
     ])
 
     param = ng.p.Array(init=x0).set_bounds(-2, 2)
-    optimizer = ng.optimizers.ChainCMAPowell(parametrization=param, budget=cfg.ng_budget, num_workers=1)
+    optimizer = ng.optimizers.NGOpt16(parametrization=param, budget=cfg.ng_budget, num_workers=1)
 
     # print(type(optimizer.optim))        # NGOpt16の内部
     # print(optimizer.optim.name)         # 名前
@@ -398,7 +398,7 @@ def main():
     env = make_env(cfg)
 
     try:
-        # Run CMA-ES optimization
+        # Run optimization
         best_params, objective = run_optim(model, env, text_ids, device, cfg)
 
         # Report and save results
