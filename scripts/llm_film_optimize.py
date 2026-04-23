@@ -33,6 +33,12 @@ def parse_args():
     parser.add_argument("--prompt-id", type=int, default=1)
     parser.add_argument("--video-fps", type=int, default=30)
     parser.add_argument("--eval-episodes",  type=int, default=20)
+    parser.add_argument("--env-name", type=str, default="CanPickAndPlace")
+    parser.add_argument("--controller", type=str, default="OSC_POSE")
+    parser.add_argument("--camera-name", type=str, default="agentview")
+    parser.add_argument("--resize-to", type=int, default=84)
+    parser.add_argument("--reward-shaping", action="store_true")
+    parser.add_argument("--render", action="store_true")
 
     return parser.parse_args()
 
@@ -63,9 +69,22 @@ def load_model_and_tokenizer(checkpoint_path: str, device: torch.device):
 
     return model, tokenizer
 
+def make_env(cfg):
+    return RoboSuiteWrapper(
+        env_name=cfg.env_name,
+        robots=cfg.robot,
+        seed=cfg.seed,
+        controller=cfg.controller,
+        camera_name=cfg.camera_name,
+        image_height=cfg.resize_to,
+        image_width=cfg.resize_to,
+        horizon=cfg.max_steps,
+        reward_shaping=cfg.reward_shaping,
+        render=cfg.render,
+    )
 
 def run_episode_with_film(model, env, text_ids, device, max_steps,
-                gamma: torch.Tensor, beta: torch.Tensor, episode_num: int, save_video: bool) -> Tuple[bool, float]:
+                gamma: torch.Tensor, beta: torch.Tensor, episode_num: int, save_video: bool) -> Tuple[bool, float, List]:
 
     try:
 
@@ -79,18 +98,10 @@ def run_episode_with_film(model, env, text_ids, device, max_steps,
         success = False
         done = False
 
-        max_tcp_to_obj_reward = 0.0
-        max_object_grasped = 0.0
-        max_lift_reward = 0.0
-        max_move_reward = 0.0
-        max_in_place = 0.0
-        max_in_place_and_obj_grasped = 0.0
-
-        # print(f"\n{'='*60}")
-        # print(f"Episode {episode_num + 1}: Running with FiLM params")
-        # print(f"  gamma: {gamma.cpu().numpy()}")
-        # print(f"  beta:  {beta.cpu().numpy()}")
-        # print(f"{'='*60}\n")
+        max_r_reach = 0.0
+        max_r_grasp = 0.0
+        max_r_lift  = 0.0
+        max_r_hover = 0.0
 
         while not done and step < max_steps:
             img_t = torch.from_numpy(img).permute(2, 0, 1).float().unsqueeze(0) / 255.0 # (1, 3, H, W)
@@ -104,14 +115,15 @@ def run_episode_with_film(model, env, text_ids, device, max_steps,
                 action = model.act(img_t, text_ids, state_t, gamma_t, beta_t)
 
             img, state, reward, done, info = env.step(action.squeeze(0).cpu().numpy())
-            step += 1
 
-            max_tcp_to_obj_reward = max(max_tcp_to_obj_reward, info.get("tcp_to_obj_reward", 0.0))
-            max_object_grasped = max(max_object_grasped, info.get("grasp_reward", 0.0))
-            max_lift_reward = max(max_lift_reward, info.get("lift_reward", 0.0))
-            max_move_reward = max(max_move_reward, info.get("move_reward", 0.0))
-            max_in_place = max(max_in_place, info.get("in_place", 0.0))
-            max_in_place_and_obj_grasped = max(max_in_place_and_obj_grasped, info.get("in_place_and_object_grasped", 0.0))
+            r_reach, r_grasp, r_lift, r_hover = env.env.staged_rewards()
+
+            max_r_reach = max(max_r_reach, r_reach)
+            max_r_grasp = max(max_r_grasp, r_grasp)
+            max_r_lift  = max(max_r_lift,  r_lift)
+            max_r_hover = max(max_r_hover, r_hover)
+
+            step += 1
 
             if save_video:
                 frames.append(img.copy())
@@ -123,19 +135,22 @@ def run_episode_with_film(model, env, text_ids, device, max_steps,
                 break
 
         if success:
-            reward = 10.0
-
+            total_reward = 10.0
         else:
-            reward = (
-            max_tcp_to_obj_reward        * 2.0 +
-            max_object_grasped           * 1.0 +
-            max_lift_reward              * 2.0 +
-            max_move_reward              * 1.0 +
-            max_in_place                 * 0 +
-            max_in_place_and_obj_grasped * 0
-        )
+            w_reach = 1.5  / 0.1
+            w_grasp = 1.0  / 0.35
+            w_lift  = 1.5  / 0.5
+            w_hover = 2.0  / 0.7
+
+            total_reward = (
+                max_r_reach * w_reach
+              + max_r_grasp * w_grasp
+              + max_r_lift  * w_lift
+              + max_r_hover * w_hover
+            )
+
         
-        return success, -reward + 10.0, frames
+        return success, -total_reward + 10.0, frames
     
     except Exception as e:
         print(f"[ERROR] run_episode failed: {str(e)[:100]}")
@@ -201,6 +216,18 @@ def main():
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
 
+    cfg = argparse.Namespace(
+        env_name=args.env_name,
+        robot=args.robot,
+        seed=args.seed,
+        controller=args.controller,
+        camera_name=args.camera_name,
+        resize_to=args.resize_to,
+        max_steps=args.max_steps,
+        reward_shaping=args.reward_shaping,
+        render=args.render,
+    )
+
     # Initialize W&B for evaluation
     wandb.init(
         project="LLM_FiLM_Optimization",
@@ -221,23 +248,7 @@ def main():
     text_tokens = tokenizer.encode(args.instruction)
     text_ids = torch.tensor(text_tokens, dtype=torch.long).unsqueeze(0).to(device)
 
-    # environment
-    if args.robot == "sawyer":
-        env = MetaWorldMT1Wrapper(
-            env_name=args.env_name,
-            seed=args.seed,
-            render_mode="rgb_array",
-            camera_name="corner2",
-            random_init=True,
-        )
-    elif args.robot == "ur10e":
-        env = UR10ePickPlaceEnvV3(
-            render_mode="rgb_array",
-            camera_name="corner",
-            seed=args.seed,
-            random_init=False,
-        )
-
+    env = make_env(cfg)
 
     # Initialize LLM-based FiLM generator
     print(f"Initializing LLM FiLM generator with model: {args.llm_model}")
