@@ -118,20 +118,20 @@ def run_episode(model, env, text_ids, device, max_steps,
                 done = True
                 break
 
-        w_reach = 1.5  / 0.1
-        w_grasp = 1.0  / 0.35
-        w_lift  = 1.5  / 0.5
-        w_hover = 2.0  / 0.7
-
-        total_reward = (
-            max_r_reach * w_reach
-          + max_r_grasp * w_grasp
-          + max_r_lift  * w_lift
-          + max_r_hover * w_hover
-        )
-
         if success:
-            total_reward += 4.0
+            total_reward = 10.0
+        else:
+            w_reach = 1.5  / 0.1
+            w_grasp = 1.0  / 0.35
+            w_lift  = 1.5  / 0.5
+            w_hover = 2.0  / 0.7
+
+            total_reward = (
+                max_r_reach * w_reach
+              + max_r_grasp * w_grasp
+              + max_r_lift  * w_lift
+              + max_r_hover * w_hover
+            )
 
         return success, total_reward
     
