@@ -9,8 +9,7 @@ import imageio.v2 as imageio
 import wandb
 from typing import Tuple, List, Dict, Optional
 
-from envs.metaworld_env import MetaWorldMT1Wrapper
-from envs.ur10e_env import UR10ePickPlaceEnvV3
+from envs.robosuite_env import RoboSuiteWrapper
 from models.vla_diffusion_policy import VLADiffusionPolicy
 from utils.tokenizer import SimpleTokenizer
 
@@ -20,8 +19,7 @@ from .llm_film_generator import LLMFiLMGenerator
 def parse_args():
     parser = argparse.ArgumentParser(description="Test VLA Diffusion Policy on Meta-World MT1")
 
-    parser.add_argument("--checkpoint", type=str, default="checkpoints/fm_bottleneck_model.pt")
-    parser.add_argument("--env-name", type=str, default="pick-place-v3")
+    parser.add_argument("--checkpoint", type=str, default="checkpoints/can_model_v2.pt")
     parser.add_argument("--robot", type=str, default="sawyer")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=10000)
