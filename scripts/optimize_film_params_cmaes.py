@@ -90,28 +90,10 @@ def run_episode(model, env, text_ids, device, max_steps,
         success = False
         done = False
 
-        def compute_phase_reward(info):
-            reward = 0.0
-
-            # ===== reach =====
-            if "gripper_dist" in info:
-                d = info["gripper_dist"]
-                reward += np.exp(-5 * d)   # 0~1
-
-            # ===== grasp =====
-            if info.get("grasped", False):
-                reward += 1.0
-
-            # ===== lift =====
-            if "cube_z" in info:
-                lift = info["cube_z"] - 0.8
-                reward += np.clip(lift * 10, 0, 1.0)
-
-            # ===== success =====
-            if info.get("success", False):
-                reward += (max_steps - step) * 1.5
-
-            return reward
+        max_r_reach = 0.0
+        max_r_grasp = 0.0
+        max_r_lift  = 0.0
+        max_r_hover = 0.0
         
         while not done and step < max_steps:
             img_t   = torch.from_numpy(img).permute(2, 0, 1).float().unsqueeze(0).div(255.0).to(device)
@@ -122,15 +104,21 @@ def run_episode(model, env, text_ids, device, max_steps,
             
             img, state, reward, done, info = env.step(action.squeeze(0).cpu().numpy())
 
-            reward = compute_phase_reward(info)
+            r_reach, r_grasp, r_lift, r_hover = env.env.staged_rewards()
 
-            total_reward += float(reward)
+            max_r_reach = max(max_r_reach, r_reach)
+            max_r_grasp = max(max_r_grasp, r_grasp)
+            max_r_lift  = max(max_r_lift,  r_lift)
+            max_r_hover = max(max_r_hover, r_hover)
+
             step += 1
             
             if info.get("success", False):
                 success = True
                 done = True
                 break
+
+        total_reward = max_r_reach + max_r_grasp + max_r_lift + max_r_hover
 
         return success, total_reward
     
