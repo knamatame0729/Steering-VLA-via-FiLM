@@ -157,12 +157,11 @@ def evaluate(params: np.ndarray, cfg: OptimConfig,
     successes = 0
     rewards = []
     
-    for _ in range(cfg.eval_episodes):
+    for ep in range(cfg.eval_episodes):
         success, reward = run_episode(model, env, text_ids, device, cfg.max_steps, gamma, beta)
         rewards.append(reward)
         if success:
             successes += 1
-
  
     mean_reward = np.mean(rewards)
 
@@ -236,10 +235,10 @@ def run_optim(model, env, text_ids, device, cfg: OptimConfig) -> Tuple[np.ndarra
     ])
 
     param = ng.p.Array(init=x0).set_bounds(-2, 2)
-    optimizer = ng.optimizers.NGOpt16(parametrization=param, budget=cfg.ng_budget, num_workers=1)
+    optimizer = ng.optimizers.ChainCMAPowell(parametrization=param, budget=cfg.ng_budget, num_workers=1)
 
-    # print(type(optimizer.optim))        # NGOpt16の内部
-    # print(optimizer.optim.name)         # 名前
+    # print(type(optimizer.optim))
+    # print(optimizer.optim.name) 
     # if hasattr(optimizer.optim, 'optim'):
     #     print(type(optimizer.optim.optim)) 
 
@@ -398,7 +397,7 @@ def main():
     env = make_env(cfg)
 
     try:
-        # Run optimization
+        # Run CMA-ES optimization
         best_params, objective = run_optim(model, env, text_ids, device, cfg)
 
         # Report and save results
