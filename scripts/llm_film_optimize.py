@@ -134,27 +134,19 @@ def run_episode_with_film(model, env, text_ids, device, max_steps,
                 done = True
                 break
 
+        MAX_HOVER = 0.7 
+
         if success:
-            total_reward = 10.0
+            loss = 0.0
         else:
-            w_reach = 1.5  / 0.1
-            w_grasp = 1.0  / 0.35
-            w_lift  = 1.5  / 0.5
-            w_hover = 2.0  / 0.7
+            best_stage = max(max_r_reach, max_r_grasp, max_r_lift, max_r_hover)
+            loss = 1.0 - (best_stage / MAX_HOVER) 
 
-            total_reward = (
-                max_r_reach * w_reach
-              + max_r_grasp * w_grasp
-              + max_r_lift  * w_lift
-              + max_r_hover * w_hover
-            )
-
-        
-        return success, -total_reward + 10.0, frames
+        return success, loss, frames
     
     except Exception as e:
         print(f"[ERROR] run_episode failed: {str(e)[:100]}")
-        return False, 0.0, []
+        return False, 1.0, []
 
 def run_episode(args, model, env, text_ids, device, film_generator, episode_num):
 
