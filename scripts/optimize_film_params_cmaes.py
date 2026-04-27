@@ -366,7 +366,7 @@ def parse_args():
     parser.add_argument("--instruction",       default="Pick up the cube")
     parser.add_argument("--max-steps",         type=int,   default=150)
     parser.add_argument("--eval-episodes",     type=int,   default=20)
-    parser.add_argument("--ng-budget",         type=int,   default=5000)
+    parser.add_argument("--ng-budget",         type=int,   default=3000)
     parser.add_argument("--reward-shaping",    action="store_true")
     parser.add_argument("--output-dir",        default="optim_results")
     parser.add_argument("--no-wandb",          action="store_true")
