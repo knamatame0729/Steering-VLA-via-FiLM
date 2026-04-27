@@ -10,7 +10,6 @@ import wandb
 from typing import Tuple, List, Dict, Optional
 
 from envs.metaworld_env import MetaWorldMT1Wrapper
-from envs.ur10e_env import UR10ePickPlaceEnvV3
 from models.vla_diffusion_policy import VLADiffusionPolicy
 from utils.tokenizer import SimpleTokenizer
 
