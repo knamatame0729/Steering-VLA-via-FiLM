@@ -102,7 +102,7 @@ def run_episode(model, env, text_ids, device, max_steps,
             with torch.no_grad():
                 action = model.act(img_t, text_ids, state_t, gamma_t, beta_t)
             
-            img, state, reward, done, info = env.step(action.squeeze(0).cpu().numpy())
+            img, state, _, done, info = env.step(action.squeeze(0).cpu().numpy())
 
             r_reach, r_grasp, r_lift, r_hover = env.env.staged_rewards()
 
