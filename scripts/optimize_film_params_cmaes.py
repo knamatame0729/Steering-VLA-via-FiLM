@@ -235,7 +235,7 @@ def run_optim(model, env, text_ids, device, cfg: OptimConfig) -> Tuple[np.ndarra
     ])
 
     param = ng.p.Array(init=x0).set_bounds(-2, 2)
-    optimizer = ng.optimizers.ChainCMAPowell(parametrization=param, budget=cfg.ng_budget, num_workers=1)
+    optimizer = ng.optimizers.NGOpt(parametrization=param, budget=cfg.ng_budget, num_workers=1)
 
     # print(type(optimizer.optim))
     # print(optimizer.optim.name) 
@@ -340,7 +340,7 @@ def parse_args():
     parser.add_argument("--instruction",       default="Pick up the cube")
     parser.add_argument("--max-steps",         type=int,   default=150)
     parser.add_argument("--eval-episodes",     type=int,   default=20)
-    parser.add_argument("--ng-budget",         type=int,   default=3000)
+    parser.add_argument("--ng-budget",         type=int,   default=2000)
     parser.add_argument("--reward-shaping",    action="store_true")
     parser.add_argument("--output-dir",        default="optim_results")
     parser.add_argument("--no-wandb",          action="store_true")
