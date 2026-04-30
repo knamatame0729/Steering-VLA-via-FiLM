@@ -82,7 +82,7 @@ Flags:
 - `--instruction` sets the natural-language prompt
 - `--render` enables on-screen rendering
 - `--reward-shaping` uses the environment's shaped reward
-- `--save-video' Log eval video to W&B
+- `--save-video` Log eval video to W&B
 
 ## FiLM Optimization
 
@@ -99,3 +99,22 @@ Apply fixed optimal FiLM params overrides and evaluates them.
 ```bash
 python -m scripts.manual_film_layer --checkpoint checkpoints/can_model_v2.pt --device cuda --episodes 100 --save-video
 ```
+
+## Branch Structure
+
+- `main`  
+  FiLM is applied at the bottleneck layer (16-dimensional latent space where multimodal features are compressed). 
+
+- `state-encoder`  
+  FiLM is applied only in the state encoder (MLP), modifying state-level representations.
+
+- `cnn`  
+  FiLM is applied in the image encoder (CNN), affecting visual feature extraction.
+
+- `props/metaworld`  
+  Bottleneck FiLM configuration with LLM optimization.  
+  Evaluated on MetaWorld tasks (Sawyer robot).
+
+- `props/robosuite`  
+  Bottleneck FiLM configuration with LLM optimization.  
+  Evaluated on Robosuite environments with multiple robot types.
