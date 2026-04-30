@@ -113,13 +113,12 @@ class RoboSuiteWrapper:
         np.random.seed(self.seed)
         random.seed(self.seed)
 
-        if hasattr(self.env, "seed"):
-            self.env.seed = self.seed
-        if hasattr(self.env, "rng"):
-            self.env.rng = np.random.default_rng(self.seed)
-            placement_initializer = getattr(self.env, "placement_initializer", None)
-            if placement_initializer is not None and hasattr(placement_initializer, "rng"):
-                placement_initializer.rng = self.env.rng
+        self.env.seed = self.seed
+        self.env.rng = np.random.default_rng(self.seed)
+
+        placement_initializer = getattr(self.env, "placement_initializer", None)
+        if placement_initializer is not None and hasattr(placement_initializer, "rng"):
+            placement_initializer.rng = self.env.rng
 
     def _infer_action_dim(self) -> int:
         action_spec = getattr(self.env, "action_spec", None)
@@ -127,17 +126,6 @@ class RoboSuiteWrapper:
             low, _ = action_spec
             return int(np.asarray(low).shape[0])
         return int(getattr(self.env, "action_dim"))
-
-    @staticmethod
-    def _infer_state_keys(obs: Dict[str, np.ndarray]) -> Iterable[str]:
-        preferred_keys = [k for k in obs.keys() if k.endswith("proprio-state")]
-        if "object-state" in obs:
-            preferred_keys.append("object-state")
-
-        if preferred_keys:
-            return preferred_keys
-
-        return [k for k, v in obs.items() if isinstance(v, np.ndarray) and v.ndim == 1]
 
     def _extract_state(self, obs: Dict[str, np.ndarray]) -> np.ndarray:
         state_parts = []
@@ -163,7 +151,6 @@ class RoboSuiteWrapper:
         else:
             img = np.asarray(obs[self.image_key])
 
-        # torch.from_numpy does not support negative strides from flip operations.
         img = np.ascontiguousarray(img)
 
         if img.dtype != np.uint8:
@@ -192,8 +179,7 @@ class RoboSuiteWrapper:
         body_id = getattr(self.env, "cube_body_id", None)
         if sim is not None and body_id is not None:
             obj_info["obj_init_pos"] = np.asarray(sim.data.body_xpos[body_id], dtype=np.float32).copy()
-            if hasattr(sim.data, "body_xquat"):
-                obj_info["obj_init_quat"] = np.asarray(sim.data.body_xquat[body_id], dtype=np.float32).copy()
+            obj_info["obj_init_quat"] = np.asarray(sim.data.body_xquat[body_id], dtype=np.float32).copy()
 
         return obj_info
 
@@ -225,40 +211,8 @@ class RoboSuiteWrapper:
         image = self._get_image(obs)
         info = dict(info) if info is not None else {}
         info["success"] = info.get("success", self._success())
-
-        # grasp
-        if hasattr(self.env, "_check_grasp"):
-            try:
-                info["grasped"] = self.env._check_grasp(
-                    gripper=self.env.robots[0].gripper,
-                    object_geoms=self.env.cube
-                )
-            except:
-                info["grasped"] = False
-
-        # gripper-object distance
-        if hasattr(self.env, "_gripper_to_target"):
-            try:
-                dist = self.env._gripper_to_target(
-                    gripper=self.env.robots[0].gripper,
-                    target=self.env.cube.root_body,
-                    target_type="body",
-                    return_distance=True
-                )
-                info["gripper_dist"] = float(dist)
-            except:
-                pass
-
-        # cube height
-        try:
-            cube_z = self.env.sim.data.body_xpos[self.env.cube_body_id][2]
-            info["cube_z"] = float(cube_z)
-        except:
-            pass
-            return image, state, float(reward), bool(done), info
         
         return image, state, float(reward), bool(done), info
 
     def close(self):
-        if hasattr(self.env, "close"):
-            self.env.close()
+        self.env.close()

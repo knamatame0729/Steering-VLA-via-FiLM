@@ -3,7 +3,6 @@
 from typing import Optional
 import torch
 import torch.nn as nn
-#from .encoders import ImageEncoderTinyCNN, TextEncoderTransformer, StateEncoderMLP
 from .encoders import ImageEncoderTinyCNN, TextEncoderTinyGRU, StateEncoderMLP
 from .fusion import FusionMLP
 from .diffusion_head import DiffusionConfig, DiffusionPolicyHead

@@ -13,8 +13,6 @@ from envs.robosuite_env import RoboSuiteWrapper
 from models.vla_diffusion_policy import VLADiffusionPolicy
 from utils.tokenizer import SimpleTokenizer
 
-from robosuite.environments.manipulation.manipulation_env import ManipulationEnv
-
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate VLA on robosuite")
@@ -80,31 +78,6 @@ def run_episode(model, env, text_ids, device, max_steps, resize_to):
     success = False
     frames = [img.copy()]
 
-    def compute_phase_reward(info):
-        reward = 0.0
-
-        # ===== reach =====
-        if "gripper_dist" in info:
-            d = info["gripper_dist"]
-            reward += np.exp(-5 * d)   # 0~1
-
-        # ===== grasp =====
-        if info.get("grasped", False):
-            reward += 1.0
-
-        # ===== lift =====
-        if "cube_z" in info:
-            lift = info["cube_z"] - 0.8
-            reward += np.clip(lift * 10, 0, 1.0)
-
-        # ===== success =====
-        if info.get("success", False):
-            reward += (max_steps - step) * 1.5
-
-
-
-        return reward
-
     while not done and step < max_steps and not success:
         img_proc = preprocess_image(img, resize_to)
         img_t = torch.from_numpy(img_proc).permute(2, 0, 1).float().unsqueeze(0) / 255.0
@@ -118,8 +91,6 @@ def run_episode(model, env, text_ids, device, max_steps, resize_to):
 
         action_np = action.squeeze(0).cpu().numpy()
         img, state, reward, done, info = env.step(action_np)
-
-        # reward = compute_phase_reward(info)
 
         total_reward += reward
         success = success or bool(info.get("success", False))

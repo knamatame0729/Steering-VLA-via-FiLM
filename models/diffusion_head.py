@@ -143,19 +143,8 @@ class DiffusionPolicyHead(nn.Module):
 
         # Main Loss
         main_loss = F.mse_loss(eps_pred, noise)
-        
-        # Loss per timestep
-        loss_per_t = F.mse_loss(eps_pred, noise, reduction='none').mean(dim=-1)  # (B,)
-
-        # Collect loss per timestep for logging
-        loss_dict = {}
-        for t_val in range(self.cfg.T):
-            mask = (t == t_val)
-            if mask.any():
-                loss_dict[f"loss_t{t_val}"] = loss_per_t[mask].mean().item()
-
-        # Compute MSE loss between the true noise and predicted noise
-        return main_loss, loss_dict
+    
+        return main_loss
 
     @torch.no_grad()
     def sample(self, cond, n_samples=None):

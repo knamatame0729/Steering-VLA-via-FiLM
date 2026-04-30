@@ -7,6 +7,7 @@ datasets
 gymnasium
 mujoco # or mujoco==3.x
 metaworld
+robosuite
 
 # data / image utils
 opencv-python
@@ -18,5 +19,12 @@ tqdm
 imageio
 imageio[ffmpeg]
 
-# cmaes
-cmaes
+# nevergrad for optimization
+nevergrad
+
+# W&B
+wandb
+
+# peft
+peft
+

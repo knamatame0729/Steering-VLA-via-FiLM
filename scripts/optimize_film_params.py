@@ -21,15 +21,15 @@ from utils.tokenizer import SimpleTokenizer
 @dataclass
 class OptimConfig:
     # model / env
-    checkpoint:  str   = "checkpoints/fm_bottleneck_model_v2.pt"
+    checkpoint:  str   = "checkpoints/can_model_v2.pt"
     env_name:    str   = "Lift"
     robot:       str   = "Panda"
     controller:  str   = "OSC_POSE"
     camera_name: str   = "agentview"
     seed:        int   = 42
-    instruction: str   = "Pick up the cube"
+    instruction: str   = "Pick up the can and place it"
     device:      str   = "cpu"
-    max_steps:   int   = 400
+    max_steps:   int   = 250
     resize_to:   int   = 84
     reward_shaping: bool = False
 
@@ -37,10 +37,10 @@ class OptimConfig:
     state_dim: int = 128
 
     # evaluation
-    eval_episodes: int = 20
+    eval_episodes: int = 10
 
     # Nevergrad
-    ng_budget: int = 5000
+    ng_budget: int = 2000
 
     # logging
     use_wandb:    bool = True
@@ -94,29 +94,6 @@ def run_episode(model, env, text_ids, device, max_steps,
         max_r_grasp = 0.0
         max_r_lift  = 0.0
         max_r_hover = 0.0
-
-        def compute_phase_reward(info):
-            reward = 0.0
-
-            # ===== reach =====
-            if "gripper_dist" in info:
-                d = info["gripper_dist"]
-                reward += np.exp(-5 * d)   # 0~1
-
-            # ===== grasp =====
-            if info.get("grasped", False):
-                reward += 1.0
-
-            # ===== lift =====
-            if "cube_z" in info:
-                lift = info["cube_z"] - 0.8
-                reward += np.clip(lift * 10, 0, 1.0)
-
-            # ===== success =====
-            if info.get("success", False):
-                reward += (max_steps - step) * 1.5
-
-            return reward
         
         while not done and step < max_steps:
             img_t   = torch.from_numpy(img).permute(2, 0, 1).float().unsqueeze(0).div(255.0).to(device)
@@ -134,9 +111,6 @@ def run_episode(model, env, text_ids, device, max_steps,
             max_r_lift  = max(max_r_lift,  r_lift)
             max_r_hover = max(max_r_hover, r_hover)
 
-            # reward = compute_phase_reward(info)
-
-            # total_reward += float(reward)
             step += 1
             
             if info.get("success", False):
@@ -173,8 +147,6 @@ def evaluate(params: np.ndarray, cfg: OptimConfig,
     Evaluate parameters over multiple episodes.
     """
     d = cfg.state_dim
-    # gamma = torch.tensor(params[:d], dtype=torch.float32)
-    # beta  = torch.tensor(params[d:], dtype=torch.float32)
 
     params_t = torch.from_numpy(params).float().to(device)
     gamma = params_t[:d]
@@ -341,9 +313,9 @@ def report_results(best_params: np.ndarray, state_dim: int, objective: Objective
             gamma_success = params[:state_dim]
             beta_success = params[state_dim:]
             
-            gamma_dict_success = {f"{i}:{i+1}": round(float(gamma_success[i]), 4) 
+            gamma_dict_success = {f"{i}:{i+1}": round(float(gamma_success[i]), 7) 
                                  for i in range(state_dim)}
-            beta_dict_success = {f"{i}:{i+1}": round(float(beta_success[i]), 4) 
+            beta_dict_success = {f"{i}:{i+1}": round(float(beta_success[i]), 7) 
                                 for i in range(state_dim)}
             
             print(f"[Success #{idx}]")
@@ -354,7 +326,7 @@ def report_results(best_params: np.ndarray, state_dim: int, objective: Objective
         print(f"{'=' * 70}\n")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Optimize FiLM gamma/beta with CMA-ES")
+    parser = argparse.ArgumentParser(description="Optimize FiLM gamma/beta")
     parser.add_argument("--checkpoint",        default="checkpoints/model.pt")
     parser.add_argument("--env-name",          default="Lift")
     parser.add_argument("--robot",             default="Panda")
@@ -407,7 +379,7 @@ def main():
 
     if cfg.use_wandb:
         wandb.init(
-            entity="kaitos_projects",
+            entity="VLA-via-FiLM",
             project=cfg.project_name,
             config={
                 "eval_episodes": cfg.eval_episodes,
@@ -423,7 +395,7 @@ def main():
     env = make_env(cfg)
 
     try:
-        # Run CMA-ES optimization
+        # Run optimization
         best_params, objective = run_optim(model, env, text_ids, device, cfg)
 
         # Report and save results

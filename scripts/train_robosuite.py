@@ -13,8 +13,6 @@ from torch.utils.data import Dataset, DataLoader
 from models.vla_diffusion_policy import VLADiffusionPolicy
 from utils.tokenizer import SimpleTokenizer
 
-import wandb
-
 DEFAULT_STATE_KEYS = [
     "robot0_eef_pos",  
     "robot0_eef_quat",   
@@ -30,7 +28,7 @@ class RoboMimicHDF5Dataset(Dataset):
         dataset_path: str,
         camera_obs_key: str = "agentview_image",
         state_obs_keys: list = None,
-        instruction: str = "pick up the cube",
+        instruction: str = "Pick up the can and place it",
         filter_key: str = None,
         max_demos: int = None,
     ):
@@ -127,7 +125,7 @@ class RoboMimicHDF5Dataset(Dataset):
     def __getitem__(self, idx):
         img = self.images[idx]  # (H, W, 3), uint8
 
-        # uint8に変換
+        # Convert unit8
         if img.dtype != np.uint8:
             img = (img.clip(0, 1) * 255).astype(np.uint8) if img.max() <= 1.0 \
                 else img.clip(0, 255).astype(np.uint8)
@@ -143,10 +141,10 @@ class RoboMimicHDF5Dataset(Dataset):
 def parse_args():
     parser = argparse.ArgumentParser(description="Train VLA on robomimic HDF5 dataset")
     parser.add_argument("--dataset-path", type=str,
-                        default="/home/kaito/robomimic/datasets/lift/ph/image.hdf5")
+                        default="./robomimic/datasets/lift/ph/image.hdf5")
     parser.add_argument("--camera-obs-key", type=str, default="agentview_image")
     parser.add_argument("--state-obs-keys", type=str, default="")
-    parser.add_argument("--instruction", type=str, default="pick up the cube")
+    parser.add_argument("--instruction", type=str, default="Pick up the can and place it")
     parser.add_argument("--filter-key", type=str, default="train")
     parser.add_argument("--max-demos", type=int, default=0)
     parser.add_argument("--batch-size", type=int, default=64)
@@ -156,7 +154,6 @@ def parse_args():
     parser.add_argument("--diffusion-T", type=int, default=16)
     parser.add_argument("--save-path", type=str, default="checkpoints/model.pt")
     parser.add_argument("--device", type=str, default="cuda")
-    parser.add_argument("--wandb-project", type=str, default="mini-vla")
     return parser.parse_args()
 
 
@@ -198,32 +195,12 @@ def main():
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    wandb.init(
-        project=args.wandb_project,
-        config={
-            "dataset_path": args.dataset_path,
-            "filter_key": filter_key,
-            "batch_size": args.batch_size,
-            "epochs": args.epochs,
-            "learning_rate": args.lr,
-            "d_model": args.d_model,
-            "diffusion_T": args.diffusion_T,
-            "optimizer": "Adam",
-            "vocab_size": vocab_size,
-            "state_dim": state_dim,
-            "action_dim": action_dim,
-            "dataset_size": len(dataset),
-            "num_batches_per_epoch": len(loader),
-        }
-    )
-
     avg_loss = float("inf")
 
     for epoch in range(args.epochs):
         model.train()
         total_loss = 0.0
         epoch_losses = []
-        epoch_loss_dict = {f"loss_t{t}": [] for t in range(args.diffusion_T)}
 
         for batch_idx, (img, state, action, text_ids) in enumerate(loader):
             img = img.to(device)
@@ -231,7 +208,7 @@ def main():
             action = action.to(device)
             text_ids = text_ids.to(device)
 
-            loss, loss_dict = model.loss(img, text_ids, state, action)
+            loss = model.loss(img, text_ids, state, action)
 
             optimizer.zero_grad()
             loss.backward()
@@ -240,29 +217,8 @@ def main():
             total_loss += loss.item() * img.size(0)
             epoch_losses.append(loss.item())
 
-            for t_key, t_loss in loss_dict.items():
-                epoch_loss_dict[t_key].append(t_loss)
-
-            log_dict = {
-                "train/batch_loss": loss.item(),
-                "train/epoch": epoch + 1,
-                "train/global_step": epoch * len(loader) + batch_idx,
-            }
-            for t_key, t_loss in loss_dict.items():
-                log_dict[f"train/{t_key}"] = t_loss
-            wandb.log(log_dict)
-
         avg_loss = total_loss / len(dataset)
         print(f"Epoch {epoch+1}/{args.epochs}  loss={avg_loss:.6f}")
-
-        epoch_log_dict = {
-            "train/epoch_loss": avg_loss,
-            "train/epoch_loss_std": float(np.std(epoch_losses)),
-        }
-        for t_key in epoch_loss_dict:
-            if epoch_loss_dict[t_key]:
-                epoch_log_dict[f"epoch_{t_key}"] = np.mean(epoch_loss_dict[t_key])
-        wandb.log(epoch_log_dict)
 
     torch.save({
         "model_state_dict": model.state_dict(),
@@ -275,9 +231,6 @@ def main():
         "diffusion_T": args.diffusion_T,
     }, args.save_path)
     print(f"Saved final checkpoint: {args.save_path}")
-
-    wandb.log({"train/final_loss": avg_loss, "train/total_epochs": args.epochs})
-    wandb.finish()
 
 
 if __name__ == "__main__":
