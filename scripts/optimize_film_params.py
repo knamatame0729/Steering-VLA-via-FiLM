@@ -155,7 +155,7 @@ def evaluate(params: np.ndarray, cfg: OptimConfig,
     successes = 0
     rewards = []
     
-    for _ in range(cfg.eval_episodes):
+    for ep in range(cfg.eval_episodes):
         success, reward = run_episode(model, env, text_ids, device, cfg.max_steps, gamma, beta)
         rewards.append(reward)
         if success:
