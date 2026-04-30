@@ -22,10 +22,16 @@ class FusionMLP(nn.Module):
 
         self.ln = nn.LayerNorm(d_model)
 
-    def forward(self, img_token, txt_token, state_token):
+    def forward(self, img_token, txt_token, state_token, gamma=None, beta=None):
         x = torch.cat([img_token, txt_token, state_token], dim=-1)  # (B, 3 * d_model)
 
-        z = self.encoder(x)
+        z = self.encoder(x)                                             # (B, d_model)
+
+        # print(f"x.shape: {x.shape}")
+        # print(f"x (first 10 dims): {x[:, :10].detach().cpu().numpy()}")
+        if gamma is not None and beta is not None:
+            # Apply FiLM modulation
+            z = z * gamma + beta  # (B, d_model)
 
         x = self.decoder(z)  # (B, d_model)
         # x = self.ln(x)      # (B, d_model)

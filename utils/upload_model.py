@@ -1,5 +1,4 @@
 import wandb
-from pathlib import Path
 
 wandb.init(project="Manual_FiLM_VLA_Testing", name="model_upload")
 
@@ -8,11 +7,7 @@ artifact = wandb.Artifact(
     type="model"
 )
 
-model_path = Path("./checkpoints/can_model_v2.pt").expanduser()
-if not model_path.is_file():
-    raise FileNotFoundError(f"Model file not found: {model_path}")
-
-artifact.add_file(str(model_path))
+artifact.add_file("./checkpoints/can_model_v2.pt")
 
 wandb.log_artifact(artifact)
 wandb.finish()

@@ -3,6 +3,7 @@
 from typing import Optional
 import torch
 import torch.nn as nn
+#from .encoders import ImageEncoderTinyCNN, TextEncoderTransformer, StateEncoderMLP
 from .encoders import ImageEncoderTinyCNN, TextEncoderTinyGRU, StateEncoderMLP
 from .fusion import FusionMLP
 from .diffusion_head import DiffusionConfig, DiffusionPolicyHead
@@ -50,8 +51,8 @@ class VLADiffusionPolicy(nn.Module):
         """
         img_token = self.img_encoder(image)  # (B, d_model)
         txt_token = self.txt_encoder(text_tokens)  # (B, d_model)
-        state_token = self.state_encoder(state, gamma=gamma, beta=beta)  # (B, d_model)
-        fused_context = self.fusion(img_token, txt_token, state_token)
+        state_token = self.state_encoder(state)  # (B, d_model)
+        fused_context = self.fusion(img_token, txt_token, state_token, gamma=gamma, beta=beta)
         return fused_context
     
     def encode_text(self, text_tokens):
