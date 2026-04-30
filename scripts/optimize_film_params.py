@@ -4,12 +4,14 @@ Optimize FiLM gamma/beta parameters for VLA Diffusion Policy using Nevergrad.
 
 import os
 import argparse
+import json
 import numpy as np
 import torch
 import wandb
 from dataclasses import dataclass
 from typing import Tuple, List, Dict, Optional
 import nevergrad as ng
+import time
 
 from envs.robosuite_env import RoboSuiteWrapper
 from models.vla_diffusion_policy import VLADiffusionPolicy
@@ -25,14 +27,14 @@ class OptimConfig:
     controller:  str   = "OSC_POSE"
     camera_name: str   = "agentview"
     seed:        int   = 42
-    instruction: str   = "Pick up the cube"
+    instruction: str   = "Pick up the can and place it"
     device:      str   = "cpu"
-    max_steps:   int   = 400
+    max_steps:   int   = 250
     resize_to:   int   = 84
     reward_shaping: bool = False
 
     # FiLM
-    d_model: int = 16
+    state_dim: int = 128
 
     # evaluation
     eval_episodes: int = 10
@@ -144,7 +146,7 @@ def evaluate(params: np.ndarray, cfg: OptimConfig,
     """
     Evaluate parameters over multiple episodes.
     """
-    d = cfg.d_model
+    d = cfg.state_dim
 
     params_t = torch.from_numpy(params).float().to(device)
     gamma = params_t[:d]
@@ -153,7 +155,7 @@ def evaluate(params: np.ndarray, cfg: OptimConfig,
     successes = 0
     rewards = []
     
-    for ep in range(cfg.eval_episodes):
+    for _ in range(cfg.eval_episodes):
         success, reward = run_episode(model, env, text_ids, device, cfg.max_steps, gamma, beta)
         rewards.append(reward)
         if success:
@@ -195,9 +197,9 @@ class ObjectiveFunction:
             self.best_success_count = success_count
  
         if success_count >= 1:
-            d = self.cfg.d_model
-            gamma_dict = {f"{i}:{i+1}": round(float(params[i]),   9) for i in range(d)}
-            beta_dict  = {f"{i}:{i+1}": round(float(params[d+i]), 9) for i in range(d)}
+            d = self.cfg.state_dim
+            gamma_dict = {f"{i}:{i+1}": round(float(params[i]),   6) for i in range(d)}
+            beta_dict  = {f"{i}:{i+1}": round(float(params[d+i]), 6) for i in range(d)}
             print(f"\nsuccess_count={success_count}/{self.cfg.eval_episodes}")
             print(f"  gamma = {gamma_dict}")
             print(f"  beta  = {beta_dict}\n")
@@ -221,19 +223,19 @@ def run_optim(model, env, text_ids, device, cfg: OptimConfig) -> Tuple[np.ndarra
     print("\n" + "=" * 70)
     print("  NEVERGRAD OPTIMIZATION STARTED")
     print(f"  Budget:     {cfg.ng_budget}")
-    print(f"  Parameters: {cfg.d_model * 2}")
+    print(f"  Parameters: {cfg.state_dim * 2}")
     print("=" * 70)
 
     # Initial params
     x0 = np.concatenate([
-        np.ones(cfg.d_model,  dtype=np.float32),   # gamma
-        np.zeros(cfg.d_model, dtype=np.float32),   # beta
+        np.ones(cfg.state_dim,  dtype=np.float32),   # gamma
+        np.zeros(cfg.state_dim, dtype=np.float32),   # beta
     ])
 
     param = ng.p.Array(init=x0).set_bounds(-2, 2)
     optimizer = ng.optimizers.ChainCMAPowell(parametrization=param, budget=cfg.ng_budget, num_workers=1)
 
-    # print(type(optimizer.optim))
+    # print(type(optimizer.optim))     
     # print(optimizer.optim.name) 
     # if hasattr(optimizer.optim, 'optim'):
     #     print(type(optimizer.optim.optim)) 
@@ -287,15 +289,15 @@ def run_optim(model, env, text_ids, device, cfg: OptimConfig) -> Tuple[np.ndarra
     return objective.best_params, objective
 
 
-def report_results(best_params: np.ndarray, d_model: int, objective: ObjectiveFunction):
+def report_results(best_params: np.ndarray, state_dim: int, objective: ObjectiveFunction):
 
-    gamma = best_params[:d_model]
-    beta  = best_params[d_model:]
+    gamma = best_params[:state_dim]
+    beta  = best_params[state_dim:]
     
     print(f"\n{'=' * 70}")
     print(" BEST PARAMETERS:")
-    gamma_dict = {f"{i}:{i+1}": float(gamma[i]) for i in range(d_model)}
-    beta_dict  = {f"{i}:{i+1}": float(beta[i]) for i in range(d_model)}
+    gamma_dict = {f"{i}:{i+1}": float(gamma[i]) for i in range(state_dim)}
+    beta_dict  = {f"{i}:{i+1}": float(beta[i]) for i in range(state_dim)}
     print(f'  gamma = {gamma_dict}')
     print(f'  beta  = {beta_dict}')
     print(f"{'=' * 70}\n")
@@ -308,13 +310,13 @@ def report_results(best_params: np.ndarray, d_model: int, objective: ObjectiveFu
         
         for idx, success_record in enumerate(objective.success_params_list, 1):
             params = success_record["params"]
-            gamma_success = params[:d_model]
-            beta_success = params[d_model:]
+            gamma_success = params[:state_dim]
+            beta_success = params[state_dim:]
             
-            gamma_dict_success = {f"{i}:{i+1}": round(float(gamma_success[i]), 9) 
-                                 for i in range(d_model)}
-            beta_dict_success = {f"{i}:{i+1}": round(float(beta_success[i]), 9) 
-                                for i in range(d_model)}
+            gamma_dict_success = {f"{i}:{i+1}": round(float(gamma_success[i]), 7) 
+                                 for i in range(state_dim)}
+            beta_dict_success = {f"{i}:{i+1}": round(float(beta_success[i]), 7) 
+                                for i in range(state_dim)}
             
             print(f"[Success #{idx}]")
             print(f"  gamma = {gamma_dict_success}")
@@ -324,8 +326,8 @@ def report_results(best_params: np.ndarray, d_model: int, objective: ObjectiveFu
         print(f"{'=' * 70}\n")
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Optimize FiLM gamma/beta with CMA-ES")
-    parser.add_argument("--checkpoint",        default="checkpoints/can_model_v2.pt")
+    parser = argparse.ArgumentParser(description="Optimize FiLM gamma/beta")
+    parser.add_argument("--checkpoint",        default="checkpoints/model.pt")
     parser.add_argument("--env-name",          default="Lift")
     parser.add_argument("--robot",             default="Panda")
     parser.add_argument("--controller",        default="OSC_POSE")
@@ -335,7 +337,7 @@ def parse_args():
     parser.add_argument("--device",            default="cpu")
     parser.add_argument("--instruction",       default="Pick up the cube")
     parser.add_argument("--max-steps",         type=int,   default=150)
-    parser.add_argument("--eval-episodes",     type=int,   default=10)
+    parser.add_argument("--eval-episodes",     type=int,   default=20)
     parser.add_argument("--ng-budget",         type=int,   default=2000)
     parser.add_argument("--reward-shaping",    action="store_true")
     parser.add_argument("--output-dir",        default="optim_results")
@@ -377,7 +379,7 @@ def main():
 
     if cfg.use_wandb:
         wandb.init(
-            entity="VLA-via=FiLM",
+            entity="VLA-via-FiLM",
             project=cfg.project_name,
             config={
                 "eval_episodes": cfg.eval_episodes,
@@ -397,7 +399,7 @@ def main():
         best_params, objective = run_optim(model, env, text_ids, device, cfg)
 
         # Report and save results
-        report_results(best_params, cfg.d_model, objective)
+        report_results(best_params, cfg.state_dim, objective)
 
     finally:
         env.close()
