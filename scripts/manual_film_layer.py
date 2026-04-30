@@ -261,8 +261,8 @@ def main():
 
     # Initialize W&B for evaluation
     wandb.init(
-        entity="kaitos_projects",
-        project="Manual_FiLM_VLA_Testing_CNN",
+        entity="VLA-via-FiLM",
+        project="Manual_FiLM_VLA_Testing",
         config={
             "env_name": args.env_name,
             "episodes": args.episodes,
