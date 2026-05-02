@@ -1,12 +1,10 @@
 """Test VLA Diffusion Policy on robosuite with manual FiLM parameters."""
 
-import os
 import argparse
 import numpy as np
 import torch
 import imageio.v2 as imageio
 import wandb
-import io
 import copy
 
 from envs.robosuite_env import RoboSuiteWrapper
@@ -60,7 +58,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Test VLA Diffusion Policy on robosuite")
 
     parser.add_argument("--checkpoint", type=str, default="checkpoints/can_model_v2.pt")
-    parser.add_argument("--env-name", type=str, default="Lift")
+    parser.add_argument("--env-name", type=str, default="PickPlaceCan")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--max-steps", type=int, default=150)

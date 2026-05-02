@@ -20,12 +20,12 @@ from utils.tokenizer import SimpleTokenizer
 class OptimConfig:
     # model / env
     checkpoint:  str   = "checkpoints/can_model_v2.pt"
-    env_name:    str   = "Lift"
+    env_name:    str   = "PickPlaceCan"
     robot:       str   = "Panda"
     controller:  str   = "OSC_POSE"
     camera_name: str   = "agentview"
     seed:        int   = 42
-    instruction: str   = "Pick up the cube"
+    instruction: str   = "Pick up the can and place it"
     device:      str   = "cpu"
     max_steps:   int   = 400
     resize_to:   int   = 84
@@ -326,14 +326,14 @@ def report_results(best_params: np.ndarray, d_model: int, objective: ObjectiveFu
 def parse_args():
     parser = argparse.ArgumentParser(description="Optimize FiLM gamma/beta with CMA-ES")
     parser.add_argument("--checkpoint",        default="checkpoints/can_model_v2.pt")
-    parser.add_argument("--env-name",          default="Lift")
+    parser.add_argument("--env-name",          default="PickPlaceCan")
     parser.add_argument("--robot",             default="Panda")
     parser.add_argument("--controller",        default="OSC_POSE")
     parser.add_argument("--camera-name",       default="agentview")
     parser.add_argument("--resize-to",         type=int,   default=84)
     parser.add_argument("--seed",              type=int,   default=42)
     parser.add_argument("--device",            default="cpu")
-    parser.add_argument("--instruction",       default="Pick up the cube")
+    parser.add_argument("--instruction",       default="Pick up the can and place it")
     parser.add_argument("--max-steps",         type=int,   default=150)
     parser.add_argument("--eval-episodes",     type=int,   default=10)
     parser.add_argument("--ng-budget",         type=int,   default=2000)
@@ -377,7 +377,7 @@ def main():
 
     if cfg.use_wandb:
         wandb.init(
-            entity="VLA-via=FiLM",
+            entity="VLA-via-FiLM",
             project=cfg.project_name,
             config={
                 "eval_episodes": cfg.eval_episodes,
