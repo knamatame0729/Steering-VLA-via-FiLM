@@ -7,9 +7,12 @@ datasets
 gymnasium
 mujoco # or mujoco==3.x
 metaworld
+robosuite
+robomimic
 
 # data / image utils
 opencv-python
+matplotlib
 
 # misc
 tqdm
@@ -18,5 +21,12 @@ tqdm
 imageio
 imageio[ffmpeg]
 
-# cmaes
-cmaes
+# nevergrad for optimization
+nevergrad
+
+# W&B
+wandb
+
+# peft
+peft
+
