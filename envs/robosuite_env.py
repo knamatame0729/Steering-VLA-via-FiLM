@@ -46,7 +46,7 @@ class RoboSuiteWrapper:
 
     def __init__(
         self,
-        env_name: str = "Lift",
+        env_name: str = "PickPlaceCan",
         robots: Union[Sequence[str], str] = "Panda",
         seed: int = 42,
         deterministic_reset_order: bool = True,

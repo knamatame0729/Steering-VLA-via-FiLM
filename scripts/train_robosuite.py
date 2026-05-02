@@ -141,7 +141,7 @@ class RoboMimicHDF5Dataset(Dataset):
 def parse_args():
     parser = argparse.ArgumentParser(description="Train VLA on robomimic HDF5 dataset")
     parser.add_argument("--dataset-path", type=str,
-                        default="./robomimic/datasets/lift/ph/image.hdf5")
+                        default="./data/can/ph/image.hdf5")
     parser.add_argument("--camera-obs-key", type=str, default="agentview_image")
     parser.add_argument("--state-obs-keys", type=str, default="")
     parser.add_argument("--instruction", type=str, default="Pick up the can and place it")

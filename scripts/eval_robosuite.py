@@ -17,7 +17,7 @@ from utils.tokenizer import SimpleTokenizer
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate VLA on robosuite")
     parser.add_argument("--checkpoint", type=str, required=True)
-    parser.add_argument("--env-name", type=str, default="Lift")
+    parser.add_argument("--env-name", type=str, default="PickPlaceCan")
     parser.add_argument("--robot", type=str, default="Panda")
     parser.add_argument("--controller", type=str, default="OSC_POSE")
     parser.add_argument("--camera-name", type=str, default="agentview")

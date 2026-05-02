@@ -22,7 +22,7 @@ from utils.tokenizer import SimpleTokenizer
 class OptimConfig:
     # model / env
     checkpoint:  str   = "checkpoints/can_model_v2.pt"
-    env_name:    str   = "Lift"
+    env_name:    str   = "PickPlaceCan"
     robot:       str   = "Panda"
     controller:  str   = "OSC_POSE"
     camera_name: str   = "agentview"
@@ -327,8 +327,8 @@ def report_results(best_params: np.ndarray, state_dim: int, objective: Objective
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Optimize FiLM gamma/beta")
-    parser.add_argument("--checkpoint",        default="checkpoints/model.pt")
-    parser.add_argument("--env-name",          default="Lift")
+    parser.add_argument("--checkpoint",        default="checkpoints/can_model_v2.pt")
+    parser.add_argument("--env-name",          default="PickPlaceCan")
     parser.add_argument("--robot",             default="Panda")
     parser.add_argument("--controller",        default="OSC_POSE")
     parser.add_argument("--camera-name",       default="agentview")
