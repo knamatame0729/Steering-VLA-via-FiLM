@@ -45,10 +45,8 @@ Make a directory for checkpoints
 ```
 mkdir ~/Steering-VLA-via-FiLM/checkpoints
 ```
-### Checkpoint for robosuite PickCanTask
-Download checkpoints from [here](https://wandb.ai/kaitos_projects/Manual_FiLM_VLA_Testing/artifacts/model/can_model_v2/v0/files)
 
-### Checkpoint for metaworld Pick and Place Task
+### Checkpoint for metaworld Pick and Place Task in Metaworld
 Download checkpoints from [here](https://wandb.ai/kaitos_projects/Manual_FiLM_VLA_Testing/artifacts/model/fm_bottleneck_model/v0/files)
 
 
@@ -82,4 +80,10 @@ Apply fixed optimal FiLM params overrides and evaluates them.
 
 ```bash
 python -m scripts.manual_film_layer --checkpoint checkpoints/can_model_v2.pt --device cuda --episodes 100 --save-video
+```
+
+## Props
+```bash
+export MODEL_SOURCE=/path/to/model
+python -m scripts.llm_film_optimize --device cuda --episodes 400 --save-video --prompt-id 4 --eval-episodes 10
 ```
