@@ -24,23 +24,22 @@ Clone this repository
 git clone https://github.com/knamatame0729/Steering-VLA-via-FiLM.git
 cd Steering-VLA-via-FiLM
 ```
+Install dependencies
+```
+pip install -r requirements.txt
+```  
 
-Install Robomimic for data collection
-```
-git clone https://github.com/ARISE-Initiative/robomimic.git
-cd robomimic
-pip install -e .
-```
 
 
 ## Collect demonstration data
 [Robomimic Documentation](https://robomimic.github.io/docs/datasets/robomimic_v0.1.html)  
 
 ```
-python download_datasets.py --tasks can --dataset_types ph --hdf5_types raw
+python -m robomimic.scripts.download_datasets --tasks can --dataset_types ph --hdf5_types raw --download_dir ~/Steering-VLA-via-FiLM/data
 ```
 
-
+## Postprocessing
+Check [robomimic](https://github.com/ARISE-Initiative/robomimic/blob/master/robomimic/scripts/dataset_states_to_obs.py)
 ## Checkpoints
 Make a directory for checkpoints
 ```
@@ -61,28 +60,13 @@ Train on a robomimic dataset and save a checkpoint:
 python -m scripts.train_robosuite --dataset-path /path/to/your_dataset.hdf5 --save-path checkpoints/model.pt --device cuda --batch-size 64 --epochs 50
 ```
 
-Flags:
-
-- `--camera-obs-key` changes the image key if your dataset uses a different camera
-- `--state-obs-keys` sets a comma-separated list of proprioceptive keys
-- `--filter-key train` limits loading to a robomimic split mask
-- `--max-demos 0` uses all demos, or set a positive value to cap the dataset size
-- `--wandb-project` changes the Weights & Biases project name
-
 ## Evaluate
 
 Run a trained checkpoint in robosuite:
 
 ```bash
-python -m scripts.eval_robosuite --checkpoint checkpoints/model.pt --env-name Can --robot Panda --controller OSC_POSE --device cuda --episodes 10 --save-video
+python -m scripts.eval_robosuite --checkpoint checkpoints/can_model_v2.pt --env-name PickPlaceCan --robot Panda --controller OSC_POSE --device cuda --episodes 10 --save-video
 ```
-
-Flags:
-
-- `--instruction` sets the natural-language prompt
-- `--render` enables on-screen rendering
-- `--reward-shaping` uses the environment's shaped reward
-- `--save-video` Log eval video to W&B
 
 ## FiLM Optimization
 
@@ -99,22 +83,3 @@ Apply fixed optimal FiLM params overrides and evaluates them.
 ```bash
 python -m scripts.manual_film_layer --checkpoint checkpoints/can_model_v2.pt --device cuda --episodes 100 --save-video
 ```
-
-## Branch Structure
-
-- `main`  
-  FiLM is applied at the bottleneck layer (16-dimensional latent space where multimodal features are compressed). 
-
-- `state-encoder`  
-  FiLM is applied only in the state encoder (MLP), modifying state-level representations.
-
-- `cnn`  
-  FiLM is applied in the image encoder (CNN), affecting visual feature extraction.
-
-- `props/metaworld`  
-  Bottleneck FiLM configuration with LLM optimization.  
-  Evaluated on MetaWorld tasks (Sawyer robot).
-
-- `props/robosuite`  
-  Bottleneck FiLM configuration with LLM optimization.  
-  Evaluated on Robosuite environments with multiple robot types.

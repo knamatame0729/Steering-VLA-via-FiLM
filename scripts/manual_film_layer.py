@@ -28,8 +28,8 @@ FILM_CONFIG = {
 def parse_args():
     parser = argparse.ArgumentParser(description="Test VLA Diffusion Policy on robosuite")
 
-    parser.add_argument("--checkpoint", type=str, default="checkpoints/model.pt")
-    parser.add_argument("--env-name", type=str, default="Lift")
+    parser.add_argument("--checkpoint", type=str, default="checkpoints/can_model_v2.pt")
+    parser.add_argument("--env-name", type=str, default="PickPlaceCan")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--episodes", type=int, default=5)
     parser.add_argument("--max-steps", type=int, default=150)
@@ -261,7 +261,6 @@ def main():
 
     # Initialize W&B for evaluation
     wandb.init(
-        entity="VLA-via-FiLM",
         project="Manual_FiLM_VLA_Testing",
         config={
             "env_name": args.env_name,
