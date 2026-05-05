@@ -223,21 +223,13 @@ def main():
     text_ids = torch.tensor(text_tokens, dtype=torch.long).unsqueeze(0).to(device)
 
     # environment
-    if args.robot == "sawyer":
-        env = MetaWorldMT1Wrapper(
-            env_name=args.env_name,
-            seed=args.seed,
-            render_mode="rgb_array",
-            camera_name="corner2",
-            random_init=True,
-        )
-    elif args.robot == "ur10e":
-        env = UR10ePickPlaceEnvV3(
-            render_mode="rgb_array",
-            camera_name="corner",
-            seed=args.seed,
-            random_init=False,
-        )
+    env = MetaWorldMT1Wrapper(
+        env_name=args.env_name,
+        seed=args.seed,
+        render_mode="rgb_array",
+        camera_name="corner2",
+        random_init=True,
+    )
 
 
     # Initialize LLM-based FiLM generator
